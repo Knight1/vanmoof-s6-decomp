@@ -1,0 +1,1038 @@
+{
+ "target": "ble",
+ "program": "ble.bin",
+ "ghidra_path": "/S6/v1.8.8/ble.bin",
+ "image_base": "0xc000",
+ "mcu": "Nordic nRF52840 (Cortex-M4F)",
+ "sdk": "nRF Connect SDK 2.9.1 / Zephyr 3.7.99 + SoftDevice Controller",
+ "role": "S6 central controller (CAN master + battery/charger/elock/power/audio + BLE auth + Apple Find My)",
+ "generated_from": "s6-ble-app-map workflow (10 agents, log-string anchoring) + manual reconstruction; names+create_function applied in Ghidra",
+ "note": "stripped image (2787 fns total); names cover the VanMoof app/glue layer only. Many app handlers were in undisassembled dispatch/shell-table gaps recovered via create_function. The remaining gap clusters (CAN/OD command dispatch, backup-unlock security path, power-state SMF handlers, battery/modem/DTC CLI) are listed in ble/docs/function-map.md. GAP-RECOVERY pass 1: recovered the BLE command-dispatch pipeline (ipipe) and the full backup-unlock (offline unlock-code) security cluster.",
+ "classification_legend": {
+  "app": "VanMoof application logic (reconstruct)",
+  "glue": "VanMoof integration of a vendor lib (reconstruct the glue)",
+  "vendor": "Zephyr / SoftDevice Controller / Apple FMNA lib / crypto / libc \u2014 deferred"
+ },
+ "counts": {
+  "named_total": 122,
+  "app": 100,
+  "glue": 18,
+  "vendor": 4
+ },
+ "reconstructed_to_c": [
+  "vmtp_auth_record_handler",
+  "vmtp_auth_cert_extract",
+  "vmtp_auth_signature_verify",
+  "vmtp_can_init",
+  "vmtp_zephyr_can_tx_done"
+ ],
+ "functions": [
+  {
+   "addr": "0x1f758",
+   "name": "dtc_pattern_match",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "low",
+   "role": "Wildcard byte-pattern matcher used to match DTC command/name strings (0x01 = wildcard byte)."
+  },
+  {
+   "addr": "0x254f8",
+   "name": "fmna_update_owner_connections",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "high",
+   "role": "Reads FMNA owner-connection list (FUN_0005eb1c), formats each owner BLE address by type (public/random/public_id/random_id), logs/publishes it as the FMNA owner address via OD/CAN (FUN_000364f0 obj 0x2500), maintains an owner-address ring buffer, and toggles the advertised device name between \"VANMOOF\" and \"VANMOOF-FindMy\" (FUN_00025304/FUN_00025360) based on FindMy paired+enabled state."
+  },
+  {
+   "addr": "0x25920",
+   "name": "ble_gatt_notify_send",
+   "classification": "app",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "medium",
+   "role": "GATT notification sender used by the auth/command service to push response payloads (status/challenge/command results) to the connected phone; thin VanMoof wrapper over the Zephyr bt_gatt notify API."
+  },
+  {
+   "addr": "0x25c20",
+   "name": "modem_reset_set",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "Drives the modem reset / power line: asserts/deasserts the modem RESET pin (param 1=normal,0=held in reset) and logs 'Reset modem to ...'."
+  },
+  {
+   "addr": "0x25f44",
+   "name": "modem_reset_state_handler",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "Modem connection/reset state machine: links/unlinks the modem channel object and toggles the reset line accordingly."
+  },
+  {
+   "addr": "0x261d0",
+   "name": "shell_cmd_h_261d0",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler \u2014 recovered from gap (shell table 0x95980), pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2671c",
+   "name": "audio_player_reset",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "medium",
+   "role": "Resets/clears audio player state before starting a new playback."
+  },
+  {
+   "addr": "0x26740",
+   "name": "audio_enqueue_play_cmd",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "high",
+   "role": "Builds the audio command record (path + type + params) and posts it to the audio worker message queue DAT_00026790."
+  },
+  {
+   "addr": "0x26794",
+   "name": "audio_play",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "high",
+   "role": "Top-level 'play this sound' entry point: arg1=wav path, arg2=audio type/category, arg3=repeat count; returns 0xfffffff0 if a sound is already playing."
+  },
+  {
+   "addr": "0x26890",
+   "name": "shell_cmd_h_26890",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2694c",
+   "name": "audio_play_current_bell",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "high",
+   "role": "Plays the currently-selected bell sound (primary/secondary, push vs release variant) via the audio play API."
+  },
+  {
+   "addr": "0x269c0",
+   "name": "audio_set_bell_index",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "medium",
+   "role": "Sets/persists a bell-sound selection slot (0-1) to a sound id (0-7), with bounds validation."
+  },
+  {
+   "addr": "0x269e0",
+   "name": "audio_set_mute_level",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "medium",
+   "role": "Stores the audio mute level used to suppress low-priority sound files."
+  },
+  {
+   "addr": "0x27190",
+   "name": "elock_mutex_unlock",
+   "classification": "glue",
+   "subsystem": "elock",
+   "recon_priority": "low",
+   "role": "Thin wrapper releasing the elock state mutex."
+  },
+  {
+   "addr": "0x2719c",
+   "name": "elock_state_differs",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "low",
+   "role": "Returns whether the reported lock state differs from the requested state, under the elock mutex."
+  },
+  {
+   "addr": "0x272d8",
+   "name": "elock_fsm_transition",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Elock FSM transition driver: under the elock mutex, logs the from/to state CAN frame (OD 0x28c0), invokes the per-state callback from the state-handler table, and commits the new lock state."
+  },
+  {
+   "addr": "0x27380",
+   "name": "elock_set_lock_state",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Set/request a lock state: takes the elock mutex, logs the requested-state CAN frame (OD 0x1cc0), and if it differs from current state invokes the state-entry callback and drives the FSM transition."
+  },
+  {
+   "addr": "0x27568",
+   "name": "audio_play_by_index",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "low",
+   "role": "Thin wrapper: play sound N from a wav-path lookup table (type 0xe, once)."
+  },
+  {
+   "addr": "0x277e4",
+   "name": "elock_drive_unlock_pulse",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Unlock actuation: enables the lock motor power domain and issues a current-limited motor drive pulse to physically open the elock."
+  },
+  {
+   "addr": "0x278fc",
+   "name": "elock_state_machine_step",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Core elock state machine: dispatches on reported/target lock-state bytes, drives the lock motor with ret/ current-limit pulses, runs the stuck-retry counter, and emits CAN/OD state (0x164) plus touch-unlock activation."
+  },
+  {
+   "addr": "0x27b64",
+   "name": "elock_unlock_complete",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Unlock-complete handler: on the pending-unlock flag, clears it, reports lock state 0 to the OD, times the unlock duration, and posts the completion event to the application event manager."
+  },
+  {
+   "addr": "0x27c4c",
+   "name": "audio_play_event_cue",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "medium",
+   "role": "Event-driven audio cue handler (plays a wav of type 0xe and arms a follow-up timer)."
+  },
+  {
+   "addr": "0x27fa8",
+   "name": "audio_play_timed_cue",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "low",
+   "role": "Plays a timed audio cue and schedules a deferred-work callback for completion."
+  },
+  {
+   "addr": "0x28134",
+   "name": "vm_enter_service_mode",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "high",
+   "role": "Transitions the bike into service mode (sets sub-states + logs)."
+  },
+  {
+   "addr": "0x282a8",
+   "name": "vmtp_cmd_h_282a8",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x282cc",
+   "name": "vmtp_cmd_h_282cc",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x283f0",
+   "name": "elock_touch_unlock_request",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "high",
+   "role": "Touch-unlock request handler: logs the touch-unlock trigger, emits a CAN/OD frame (id 0x1900), sets OD object 0x163, and runs the unlock command path."
+  },
+  {
+   "addr": "0x284b8",
+   "name": "vmtp_cmd_elock",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "high",
+   "role": "BLE lock/unlock command (OD 0x163): gated on elock_is_present, drives the elock motor (same timer/scaling as the elock FSM)",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x28574",
+   "name": "vmtp_cmd_h_28574",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2873c",
+   "name": "elock_request_present_init",
+   "classification": "glue",
+   "subsystem": "elock",
+   "recon_priority": "low",
+   "role": "Kicks off elock presence discovery by posting a query on the application event manager."
+  },
+  {
+   "addr": "0x28760",
+   "name": "elock_report_lock_state",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "medium",
+   "role": "Publishes the current lock-state byte: stores it, writes OD object 0x160, and forwards it on the application event manager."
+  },
+  {
+   "addr": "0x28a9c",
+   "name": "elock_is_present",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "medium",
+   "role": "Elock presence/availability check: returns whether the elock module is detected and usable, gating unlock actions."
+  },
+  {
+   "addr": "0x28e14",
+   "name": "ps_consumer_bit_clear",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Atomically clear one consumer's bit in the power-off request bitmask (paired with the inline set in ps_power_on_request)"
+  },
+  {
+   "addr": "0x28f38",
+   "name": "ps_power_state_publish",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "Publish the current power_state byte as a TOPIC_POWER_STATE event on the Application Event Manager bus"
+  },
+  {
+   "addr": "0x28f98",
+   "name": "ps_power_state_set",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "Set the global power_state byte (only if changed), log the transition using the state-name table, then call ps_power_state_publish"
+  },
+  {
+   "addr": "0x2900c",
+   "name": "ps_power_state_get",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Return the current power_state value"
+  },
+  {
+   "addr": "0x29048",
+   "name": "ps_power_on_request",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "Request power-on for a consumer: refuses if shipping mode on (returns -22/0xffffffea), else atomically sets the consumer bit, calls FUN_0006c8b6(0), publishes power state"
+  },
+  {
+   "addr": "0x29134",
+   "name": "ps_power_off_request",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "Request power-off for a consumer: clears the consumer bit (FUN_00028e14), when no consumers remain calls FUN_0006c8b6(1) and publishes power state"
+  },
+  {
+   "addr": "0x294d4",
+   "name": "ps_state_entry_log_only",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "SMF state entry handler that logs entry and re-arms the state work item"
+  },
+  {
+   "addr": "0x295f0",
+   "name": "ps_charge_state_entry",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF charge-state entry: emits CAN/OD command 0xa300, schedules work, publishes power-state event payload 5"
+  },
+  {
+   "addr": "0x296dc",
+   "name": "ps_charge_wakeup_run",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF charge wake-up handler: emits CAN/OD command 0xa301 and reschedules work"
+  },
+  {
+   "addr": "0x29868",
+   "name": "ps_state_run_reschedule",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "SMF state run handler that just reschedules the periodic work item (0x8000 ticks)"
+  },
+  {
+   "addr": "0x29904",
+   "name": "ps_standby_entry",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF standby-state entry handler: arms CAN-standby timer (FUN_0002a8b4), resets fields, sets power_state to standby(3), publishes"
+  },
+  {
+   "addr": "0x29a58",
+   "name": "ps_state_entry_log_only_2",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "SMF state entry handler: log entry and re-arm the state work item"
+  },
+  {
+   "addr": "0x29a9c",
+   "name": "ps_standby_run",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "medium",
+   "role": "SMF standby-state run handler: ensures power_state=standby(3) and reschedules the standby work"
+  },
+  {
+   "addr": "0x29c98",
+   "name": "ps_discharge_state_entry",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF discharge-state entry: emits CAN/OD command 0xa303, schedules work, publishes power-state payload 2"
+  },
+  {
+   "addr": "0x29d88",
+   "name": "ps_discharge_wakeup_run",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF discharge wake-up handler: emits CAN/OD command 0xa304 and reschedules work"
+  },
+  {
+   "addr": "0x29ef4",
+   "name": "ps_update_state_entry",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "high",
+   "role": "SMF firmware-update-state entry: starts a timer, publishes power-state payload 3 and a secondary status, schedules work"
+  },
+  {
+   "addr": "0x29fc0",
+   "name": "ps_state_run_reschedule_2",
+   "classification": "app",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "SMF state run handler that reschedules the periodic work item"
+  },
+  {
+   "addr": "0x2a400",
+   "name": "ps_publish_empty_evt_a",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Publish a parameterless power-state notification event"
+  },
+  {
+   "addr": "0x2a424",
+   "name": "ps_publish_evt_4b",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Publish a 4-byte power-state event"
+  },
+  {
+   "addr": "0x2a44c",
+   "name": "ps_set_flag_publish_1b",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Update a 1-bit power status flag, reset timers, and publish the new status byte"
+  },
+  {
+   "addr": "0x2a484",
+   "name": "ps_set_charging_flag_publish",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "medium",
+   "role": "Update a power status flag (e.g. charging/active), (re)arm the associated work/timer, publish the status byte"
+  },
+  {
+   "addr": "0x2a88c",
+   "name": "ps_publish_state_evt2",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "low",
+   "role": "Publish a 2-byte power-state event on the Application Event Manager bus"
+  },
+  {
+   "addr": "0x2aa54",
+   "name": "charger_identify",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Identifies the connected Liteon charger (normal 2kW vs speed 5kW) by matching its id and selects the matching charger descriptor."
+  },
+  {
+   "addr": "0x2aaec",
+   "name": "charger_publish_detected_event",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "medium",
+   "role": "Builds and posts the charger-detected Application-Event-Manager event carrying the charger descriptor."
+  },
+  {
+   "addr": "0x2ab90",
+   "name": "charger_publish_status_event",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "low",
+   "role": "Publishes a short charger status/result notification event."
+  },
+  {
+   "addr": "0x2ad44",
+   "name": "can_power_off",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "high",
+   "role": "VanMoof CAN power-rail consumer reference counting: clears the caller's bit in a consumer bitmask; when the mask reaches 0 it sets a 'powering off' flag and schedules the actual CAN power-off via a delayed work (FUN_00063790, 0x60000 delay). Core CAN power-management orchestration on the central controller."
+  },
+  {
+   "addr": "0x2ad9c",
+   "name": "actuator_power_domain_enable",
+   "classification": "app",
+   "subsystem": "elock",
+   "recon_priority": "medium",
+   "role": "Reference-counted actuator power-rail enable (bit per consumer); brings up the motor/elock power domain before driving."
+  },
+  {
+   "addr": "0x2b100",
+   "name": "charger_update_charge_current",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Charger charge/discharge current-update handler tied to the power-state machine; applies new current and records state."
+  },
+  {
+   "addr": "0x2ce30",
+   "name": "dtc_set",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "Sets a Diagnostic Trouble Code (by code id, e.g. 0x9000): increments occurrence counter, timestamps, flips state to active and persists/notifies."
+  },
+  {
+   "addr": "0x2cec4",
+   "name": "ps_canbus_od_send",
+   "classification": "glue",
+   "subsystem": "power-state",
+   "recon_priority": "medium",
+   "role": "Send a CAN/Object-Dictionary command by ID through the CAN driver vtable (used to drive battery charge/discharge transitions)"
+  },
+  {
+   "addr": "0x2d040",
+   "name": "shell_cmd_h_2d040",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2d050",
+   "name": "shell_cmd_h_2d050",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2d508",
+   "name": "vm_identity_format_ids",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "medium",
+   "role": "Formats the bike/frame/ECU identifier triple into a text buffer (shell/BLE info response)."
+  },
+  {
+   "addr": "0x2d604",
+   "name": "vm_identity_load_id",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "medium",
+   "role": "Reads/validates a stored 16-byte identifier from persistent storage into RAM."
+  },
+  {
+   "addr": "0x2d6a0",
+   "name": "vm_identity_set_id",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "high",
+   "role": "OD/shell handler that writes a new bike/frame/ECU identifier and logs the change (enforces ECU-id-locked)."
+  },
+  {
+   "addr": "0x2da50",
+   "name": "dtc_can_cmd_handler",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "CAN/OD command handler that sets or clears DTC 0x9000 based on a matched 16-byte command payload; the externally-reachable DTC control entry point."
+  },
+  {
+   "addr": "0x2dbb0",
+   "name": "shell_cmd_dtc",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "medium",
+   "role": "DTC shell command dispatcher (list/save/clear active DTCs); uses dtc_pattern_match. Needs disassemble+create_function before C recon."
+  },
+  {
+   "addr": "0x2dc64",
+   "name": "shell_cmd_modem_version",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "medium",
+   "role": "'modem version' shell command: fetches modem info and prints 'SiP Version: %s'. Needs disassemble+create_function before C recon."
+  },
+  {
+   "addr": "0x2dcb8",
+   "name": "modem_get_info",
+   "classification": "glue",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "Core modem SiP info/version fetch: requests modem info over the Application-Event-Manager IPC and returns the 0x50-byte info blob (SiP version/IMEI/ICCID)."
+  },
+  {
+   "addr": "0x2dcfc",
+   "name": "shell_cmd_modem_info",
+   "classification": "app",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "medium",
+   "role": "'modem info' shell command: prints SiP version, IMEI and ICCID. Needs disassemble+create_function before C recon."
+  },
+  {
+   "addr": "0x2e0c8",
+   "name": "ipipe_ctx_init",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "medium",
+   "role": "alloc + init the ~0x460-byte BLE command-pipeline (ipipe) context",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2e14c",
+   "name": "ipipe_dispatch",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "high",
+   "role": "BLE command dispatch: reset ctx, parse inbound msg (0x6e92c), invoke registered handler ctx+0x1c->+0x18; logs 'ipipe dispatch failed'; -32 if no handler",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2f120",
+   "name": "vmtp_cmd_h_2f120",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "command handler \u2014 recovered from gap (dispatch table 0x958e0), pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2f550",
+   "name": "vmtp_cmd_version",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "medium",
+   "role": "BLE 'version' command (OD 0x1b1): reports /fs/version + the staged /fs/firmware.pak version as %u.%u.%u.%u",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2f6b4",
+   "name": "vmtp_cmd_h_2f6b4",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2ff14",
+   "name": "vmtp_cmd_permission_check",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "medium",
+   "role": "command permission/precondition check (0x10c-byte scratch; returns 0 if allowed) used by the firmware update command",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x2ff30",
+   "name": "vmtp_cmd_firmware",
+   "classification": "app",
+   "subsystem": "can-dispatch",
+   "recon_priority": "high",
+   "role": "BLE 'firmware' command handler: matches the 8-byte command name, dispatches sub-opcode msg[5] (1=trigger update->/fs/firmware.pak permission-checked, 4=path query, 0=version query, else 'command not allowed'); replies via AEM event",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x30094",
+   "name": "modem_parse_version_from_filename",
+   "classification": "glue",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "medium",
+   "role": "Determines the modem firmware version, falling back to parsing the X.Y.Z version embedded in the update filename; used by the modem update flow."
+  },
+  {
+   "addr": "0x30170",
+   "name": "modem_firmware_update",
+   "classification": "glue",
+   "subsystem": "modem-dtc-device",
+   "recon_priority": "high",
+   "role": "Modem firmware (FMFU) update over the nrf_modem bootloader: parse pack, verify segment hashes, stream chunks, switch/verify bootloader & fw. VanMoof glue over the Nordic nrf_modem_bootloader API."
+  },
+  {
+   "addr": "0x30e24",
+   "name": "shell_cmd_h_30e24",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31620",
+   "name": "backup_unlock_get_lockout_count",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "medium",
+   "role": "compute+publish remaining backup-unlock attempts (5 if off, 64 if active; clamped by lockout counter)",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31650",
+   "name": "backup_unlock_set_active",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "set backup-unlock active flag from an event byte, refresh lockout",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31668",
+   "name": "backup_unlock_reset_lockout",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "zero the backup-unlock lockout attempt counter",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31688",
+   "name": "backup_unlock_log_code",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "format 'Backup unlock code: %d, len: %d'",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x316a4",
+   "name": "backup_unlock_publish_event",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "alloc+submit the AEM event carrying the backup-unlock code/len",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x316e4",
+   "name": "backup_unlock_verify",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "high",
+   "role": "verify the offline backup-unlock code: decode input, 8-byte code compare via callback; 0 ok / -2 decode-fail / -22 mismatch",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31750",
+   "name": "backup_unlock_verify_fail",
+   "classification": "glue",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "log 'backup_unlock_verify failed', return -22",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31780",
+   "name": "backup_unlock_is_active",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "low",
+   "role": "return the backup-unlock active flag",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x3178c",
+   "name": "backup_unlock_store_code",
+   "classification": "app",
+   "subsystem": "backup-unlock",
+   "recon_priority": "medium",
+   "role": "store the backup-unlock code + active flag and persist via settings (0x38334)",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x31944",
+   "name": "audio_play_on_config_event",
+   "classification": "app",
+   "subsystem": "audio-bell",
+   "recon_priority": "low",
+   "role": "Config/setting-change event handler that plays a confirmation sound (type 0xd)."
+  },
+  {
+   "addr": "0x3197c",
+   "name": "alarm_stolen_set",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "medium",
+   "role": "Stolen-mode setter (alarm subsystem, tightly coupled to FMNA disable): on entering stolen state sets the stolen flag, triggers downstream actions (FUN_0006c872, FUN_00027380) and persists via storage. This is the source of the stolen condition that fmna_stolen_mode_get/FUN_00033ca8/FUN_00033e00 react to."
+  },
+  {
+   "addr": "0x319b8",
+   "name": "alarm_stolen_clear",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "medium",
+   "role": "Stolen-mode clear/recovery wrapper: stops the alarm output (FUN_0007aad4), clears stolen state via FUN_0003197c(0), and re-checks mode (FUN_000272cc) re-enabling normal operation. Restores the FMNA-disable gate when un-stolen."
+  },
+  {
+   "addr": "0x31ff0",
+   "name": "vm_odo_update",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "high",
+   "role": "Updates/rate-limits the bike odometer (ODO) distance and logs it."
+  },
+  {
+   "addr": "0x3213c",
+   "name": "vm_state_restore_distance",
+   "classification": "app",
+   "subsystem": "identity-settings-odo",
+   "recon_priority": "medium",
+   "role": "Restores ODO/ECU distance counters on boot/state change (service-exit path)."
+  },
+  {
+   "addr": "0x32944",
+   "name": "shell_cmd_h_32944",
+   "classification": "app",
+   "subsystem": "shell",
+   "recon_priority": "low",
+   "role": "shell command handler (326B) \u2014 recovered, pending decode",
+   "gap_recovered": true
+  },
+  {
+   "addr": "0x338c4",
+   "name": "app_fmna_app_state_get",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "high",
+   "role": "Central FMNA state reporter / notifier. Gathers FMNA state bytes (stolen-mode via FUN_00062270, enabled/paired/pairing-mode flags), publishes them on the OD/CAN bus (FUN_000364f0 + FUN_0006d586 obj 0x280) and refreshes app state (FUN_00055564). Called by every FMNA callback below."
+  },
+  {
+   "addr": "0x338d8",
+   "name": "fmna_app_location_availability_changed",
+   "classification": "glue",
+   "subsystem": "fmna-glue",
+   "recon_priority": "medium",
+   "role": "FMNA location-availability-changed callback: logs/publishes Find My location enabled/disabled (OD/CAN obj 0x2500), stores the availability flag, then calls app_fmna_app_state_get (FUN_000338c4)."
+  },
+  {
+   "addr": "0x33948",
+   "name": "fmna_app_paired_state_changed",
+   "classification": "glue",
+   "subsystem": "fmna-glue",
+   "recon_priority": "medium",
+   "role": "FMNA paired-state-changed callback: logs transition and publishes (OD/CAN obj 0x1cc0), plays the FindMy success/disabled audio cue (FUN_00026794), clears pairing/session flags, kicks worker (FUN_0005e5a4), then app_fmna_app_state_get."
+  },
+  {
+   "addr": "0x339f0",
+   "name": "fmna_app_pairing_mode_exited",
+   "classification": "glue",
+   "subsystem": "fmna-glue",
+   "recon_priority": "medium",
+   "role": "FMNA pairing-mode-exited callback: clears pairing-active flag, plays audio cue, publishes pairing-failed/exit event (OD/CAN obj 0x1900, code 3), runs a follow-up (FUN_0006d5aa), then app_fmna_app_state_get."
+  },
+  {
+   "addr": "0x33c38",
+   "name": "fmna_app_update_serial_number",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "high",
+   "role": "FMNA serial-number provisioning: reads the bike frame ID (FUN_0002daa0) with fallback to the ECU ID (FUN_0002da50), and persists the 16-byte value to FMNA storage key \"fmna/provisioning/997\" (FUN_00038234) as the device serial number."
+  },
+  {
+   "addr": "0x33ca8",
+   "name": "fmna_app_enable",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "high",
+   "role": "FMNA enable entry: forces the enable flag off if stolen-mode is active (FUN_00062270), stores the enable flag, and if not already disabled runs serial-number provisioning (FUN_00033c38) + FMNA stack enable (FUN_00062288), then app_fmna_app_state_get. Returns -0xd (EBUSY) if already in disabled state."
+  },
+  {
+   "addr": "0x33e00",
+   "name": "fmna_app_factory_reset",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "high",
+   "role": "FMNA factory-reset/disable path: checks stolen-mode (FUN_00062270), if not already reset performs the FMNA factory reset (FUN_00061690), delays, sets the reset flag, signals (FUN_00026740), then app_fmna_app_state_get. Returns -0x16 (EINVAL) when stolen-mode gate fails."
+  },
+  {
+   "addr": "0x565d4",
+   "name": "ble_pkt_buf_alloc",
+   "classification": "vendor",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "low",
+   "role": "BLE/NDEF response buffer allocator (Zephyr net_buf-style pool), used by the auth handler to build outbound records; vendor infrastructure."
+  },
+  {
+   "addr": "0x56fd4",
+   "name": "vmtp_auth_record_handler",
+   "classification": "app",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "high",
+   "role": "Core BLE authentication record handler: dispatches challenge/certificate/signature/command records, verifies the certificate + 0x40-byte challenge, sets per-session auth role byte, and builds the auth response record sent back over the GATT/NDEF channel."
+  },
+  {
+   "addr": "0x572b4",
+   "name": "vmtp_auth_signature_verify",
+   "classification": "app",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "high",
+   "role": "Signature-verify wrapper for the certificate path: enforces the 64-byte signature length and drives the EC crypto primitive + certificate-chain check, returning 0 on a valid signature."
+  },
+  {
+   "addr": "0x5732c",
+   "name": "vmtp_auth_cert_extract",
+   "classification": "app",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "high",
+   "role": "Certificate/record field extractor for the auth handler: pulls the cert+signature blob out of the inbound record and forwards it to the signature verifier."
+  },
+  {
+   "addr": "0x58b5c",
+   "name": "charger_set_fast_charge_current",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Writes the charger fast-charge current limit, refusing values above the battery pack's allowed maximum (security/safety clamp)."
+  },
+  {
+   "addr": "0x58db8",
+   "name": "charger_set_discharge_current_limit",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "medium",
+   "role": "Sets the charger/gauge discharge current limit register with min/max clamping."
+  },
+  {
+   "addr": "0x590cc",
+   "name": "charger_write_config_registers",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Encodes and writes the full charger-IC control-register block (charge voltage/current/timers/safety) from a config descriptor."
+  },
+  {
+   "addr": "0x5a158",
+   "name": "battery_gauge_write_config",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Programs the battery fuel-gauge parameter registers from a settings struct and verifies design capacity matches; returns negative on mismatch (0xfffffff2)."
+  },
+  {
+   "addr": "0x5aa6c",
+   "name": "battery_set_btp_charge_threshold",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "medium",
+   "role": "Programs the battery Trip-Point (BTP) charge threshold register as a percentage of design capacity."
+  },
+  {
+   "addr": "0x5aaec",
+   "name": "battery_gauge_init",
+   "classification": "app",
+   "subsystem": "battery-charger",
+   "recon_priority": "high",
+   "role": "Top-level init for the I2C battery fuel-gauge: identity check, config-register load, design-capacity verify, BTP interrupt GPIO wiring."
+  },
+  {
+   "addr": "0x5dd4c",
+   "name": "vmtp_zephyr_can_tx_done",
+   "classification": "glue",
+   "subsystem": "can-dispatch",
+   "recon_priority": "low",
+   "role": "VMTP CAN TX-complete/error callback: if the tx status arg is non-zero, logs \"CAN TX ERROR %d\" and increments a tx-error counter at state+0xc5c. Thin app callback wired into the Zephyr CAN send path."
+  },
+  {
+   "addr": "0x5dddc",
+   "name": "vmtp_can_init",
+   "classification": "app",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "high",
+   "role": "VMTP-over-CAN transport bring-up: opens the CAN device, allocates the RX work queue/thread, and registers the VanMoof vm/OD protocol endpoint on the CAN bus \u2014 the bridge from the BLE command layer to the CAN ECUs."
+  },
+  {
+   "addr": "0x5e5e4",
+   "name": "fmna_battery_level_check_init",
+   "classification": "glue",
+   "subsystem": "battery-charger",
+   "recon_priority": "low",
+   "role": "Guard that reports whether the FMNA battery level has been initialized before it is used/reported."
+  },
+  {
+   "addr": "0x62270",
+   "name": "fmna_stolen_mode_get",
+   "classification": "app",
+   "subsystem": "fmna-glue",
+   "recon_priority": "low",
+   "role": "Returns the stolen-mode / FindMy-disable security bit ((*state & 7) >> 2) with data-memory barriers. Used to refuse FMNA enable/operations while the bike is in stolen mode."
+  },
+  {
+   "addr": "0x62288",
+   "name": "fmna_stack_enable",
+   "classification": "glue",
+   "subsystem": "battery-charger",
+   "recon_priority": "medium",
+   "role": "Enables the Apple FMN stack; wires up fmna_battery_init among conn/storage/keys/state init (battery-level glue is a sub-step)."
+  },
+  {
+   "addr": "0x68880",
+   "name": "ec_signature_verify_core",
+   "classification": "vendor",
+   "subsystem": "auth-ble-vmtp",
+   "recon_priority": "low",
+   "role": "Elliptic-curve signature verification primitive (bundled crypto lib, e.g. Nordic oberon/Curve25519-Ed) invoked by the VanMoof auth path; vendor crypto, not VanMoof-authored."
+  },
+  {
+   "addr": "0x6ef6a",
+   "name": "vm_log_core",
+   "classification": "vendor",
+   "subsystem": "infra",
+   "recon_priority": "low",
+   "role": "log core"
+  },
+  {
+   "addr": "0x6efea",
+   "name": "vm_logf",
+   "classification": "vendor",
+   "subsystem": "infra",
+   "recon_priority": "low",
+   "role": "VanMoof log wrapper (module,level,fmt,..) -> vm_log_core; the universal app anchor"
+  }
+ ],
+ "command_dispatch": {
+  "od_id_table": "0x958e0",
+  "shell_name_table": "0x95980",
+  "note": "OD/command-id -> handler table at 0x958e0 (ids 0x100-0x202). Confirmed: 0x10e=firmware, 0x1b1=version, 0x163=elock(lock/unlock). Shell name->handler table at 0x95980. Handlers reached only via these tables (no code xref); recover with create_function then decode."
+ }
+}
