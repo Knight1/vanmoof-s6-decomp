@@ -1,0 +1,273 @@
+{
+ "target": "elock",
+ "program": "elock.bin",
+ "ghidra_path": "/S6/v1.8.8/elock.bin",
+ "image_base": "0x1800",
+ "vector_table": "0x1900",
+ "mcu": "TI MSPM0G (ARM Cortex-M0+, no FPU)",
+ "framework": "VanMoof takahe-fw (bare-metal, common/mspm0 + common/node)",
+ "generated_from": "s6-elock-reconstruct workflow (2 Opus agents) + Sonnet verify; imported+named via MCP",
+ "counts": {
+  "named": 36,
+  "app": 24,
+  "vendor": 12
+ },
+ "reconstructed_to_c": [
+  "elock/src/elock_lock.c",
+  "elock/src/elock_node.c"
+ ],
+ "functions": [
+  {
+   "addr": "0x000019c0",
+   "name": "solenoid_state_handler",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Solenoid lock/unlock FSM: samples drive current/voltage/MCU monitors (publishes 6-byte OD frame, raises overcurrent DTCs), then per-state actuates the H-bridge and arms the next settle tick. States: 1=enable_power,2=locking(drive),3=retry_unlock,4=check_locking,5=disable_power."
+  },
+  {
+   "addr": "0x000028bc",
+   "name": "tmag_sensor_handler",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "TMAG5x70 hall-sensor handshake FSM (DEVICE_RESET->STATUS_READ->ID_CHECKED->Z_VAL_READ->THRESHOLD_CONFIGURED). Classifies magnet on Z_VAL_READ (z<0x0e => near/decision 1 else 2), calls apply_lock_decision; on error raises DTC 0xC114 and re-inits the bus up to 3x."
+  },
+  {
+   "addr": "0x000043f0",
+   "name": "tmag_threshold_handler",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Maps a TMAG threshold event (op 0/1/2) onto the lock-detect class, publishes a 1-byte OD report on change, and on a present magnet may start solenoid_request_unlock; re-posts THRESHOLD_DETECTED (op 5)."
+  },
+  {
+   "addr": "0x00004a70",
+   "name": "can_status_handler",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "MCAN error/status callback: reads protocol-status word, walks Error Warning(<<7)->int_en 0x10 / Error Passive(<<8)->0x20 / Bus-Off(<<6)->0x40+recover; bit0 bus-off recover. Logs D>Error Warning/D>Error Passive/D>Bus_Off Status,recovering"
+  },
+  {
+   "addr": "0x00004e44",
+   "name": "mcan_get_status",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: return *(u32*)(inst+0x7050) protocol/interrupt status"
+  },
+  {
+   "addr": "0x000053b8",
+   "name": "mcan_alloc_buffer",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: allocate a free TX/RX message-buffer slot from bitmap; -0x0c if none"
+  },
+  {
+   "addr": "0x00005574",
+   "name": "mcan_bus_recover",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: bus-off recovery / message-buffer drain"
+  },
+  {
+   "addr": "0x00005b58",
+   "name": "can_rx_config",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: apply node CAN RX acceptance-filter config"
+  },
+  {
+   "addr": "0x00005d74",
+   "name": "dtc_set",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Raise a Diagnostic Trouble Code (char code index 0x14..0x4B; latch arg records it). Declare extern."
+  },
+  {
+   "addr": "0x000060a0",
+   "name": "dtc_clear",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Clear a Diagnostic Trouble Code. Declare extern."
+  },
+  {
+   "addr": "0x0000633c",
+   "name": "node_init",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Bring up all peripheral/module drivers in fixed order, clear node started flag (ctx+0x9c)"
+  },
+  {
+   "addr": "0x00006384",
+   "name": "read_serial",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Read 16-byte serial from flash via FUN_00006eec, validate 0xff terminator, NUL-terminate, copy out; -0x0e on empty/malformed"
+  },
+  {
+   "addr": "0x000063cc",
+   "name": "device_reset",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Arm device reset (reason!=0): set reset-ctrl regs, store reason, commit reset record over bus; -EINVAL on reason==0"
+  },
+  {
+   "addr": "0x0000649c",
+   "name": "node_assert_fail",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "takahe assert: build assert string (file,line) and abort (used by DTC bounds check)"
+  },
+  {
+   "addr": "0x000064e0",
+   "name": "node_start",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "CAN/OD bring-up: boot-reason check, filter reset, RX config, int enable, register OD endpoint id 0xc1, alloc heartbeat TX buffer"
+  },
+  {
+   "addr": "0x00006628",
+   "name": "u32_div",
+   "classification": "vendor",
+   "module": "elock_lock",
+   "role": "Vendor unsigned 32-bit divide helper (quotient, remainder in high word). Used for all mV/mA integer scaling. NOT VanMoof \u2014 declare extern."
+  },
+  {
+   "addr": "0x00006668",
+   "name": "node_main",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "elock firmware main: node_init -> fw_slot_probe/log -> node_start -> read_serial+log 'D>Serial %s' -> forever{solenoid_tick; WFI}"
+  },
+  {
+   "addr": "0x000066a8",
+   "name": "heartbeat_register",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Bind handler+arg to OD/heartbeat slot 0..15, mark slot present; -0x16 if slot>15"
+  },
+  {
+   "addr": "0x000067dc",
+   "name": "od_endpoint_register",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Register a CAN/OD endpoint (FUN_00007000) and enable its filter (id 0xc1 for primary)"
+  },
+  {
+   "addr": "0x0000696c",
+   "name": "heartbeat_publish",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Send 8-byte heartbeat OD frame, bump seq counter, clear one-shot DTC active bits"
+  },
+  {
+   "addr": "0x000069dc",
+   "name": "tmag_schedule",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "TMAG operation dispatcher: latch op + arg and invoke handler through the op vtable. Declare extern."
+  },
+  {
+   "addr": "0x00006c7c",
+   "name": "solenoid_request_unlock",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Public unlock entry; latches caller arg and kicks the FSM into enable_power if not busy, else returns -0x10 (EBUSY)."
+  },
+  {
+   "addr": "0x00006cac",
+   "name": "solenoid_timer_tick",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Settle-timer expiry callback; if armed, clears the timer-enable bit and advances the FSM to the latched next state."
+  },
+  {
+   "addr": "0x00006eec",
+   "name": "flash_read_serial",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR: read+validate 0x28-byte serial record from flash (mspm0_flash.c)"
+  },
+  {
+   "addr": "0x00006f14",
+   "name": "reboot_cb",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Reboot callback: log 'D>reboot_cb', write 1+key to mspm0 reset controller"
+  },
+  {
+   "addr": "0x00006f3c",
+   "name": "boot_reason_pending",
+   "classification": "app",
+   "module": "elock_node",
+   "role": "Check/consume pending reset-reason record at boot; alloc buffer + dispatch state 1"
+  },
+  {
+   "addr": "0x000071a4",
+   "name": "od_publish",
+   "classification": "vendor",
+   "module": "elock_lock",
+   "role": "Object-Dictionary / CAN publish (writes len bytes if entry is in published state). Declare extern."
+  },
+  {
+   "addr": "0x000071c4",
+   "name": "log_printf",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "VanMoof printf-style log thunk (arg0=level, arg1=fmt, varargs) -> 0x1d0c sink. Vendor/infra \u2014 declare extern."
+  },
+  {
+   "addr": "0x00007318",
+   "name": "tmag_bus_reset",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Re-init / consume pending TMAG reboot after a sensor fault. Declare extern."
+  },
+  {
+   "addr": "0x00007364",
+   "name": "mcan_clear_status",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: clear interrupt-status flags (ctrl reg bit0)"
+  },
+  {
+   "addr": "0x00007454",
+   "name": "mcan_store_error",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: store (status,flags) error snapshot into CAN ctx"
+  },
+  {
+   "addr": "0x0000747c",
+   "name": "tmag_lookup",
+   "classification": "vendor",
+   "module": "elock_lock",
+   "role": "Configured magnet-table lookup by index (0..15). Declare extern."
+  },
+  {
+   "addr": "0x000074f8",
+   "name": "pwm_set_duty",
+   "classification": "vendor",
+   "module": "elock_lock",
+   "role": "Write a PWM/timer compare (duty) value for a solenoid drive channel. Declare extern."
+  },
+  {
+   "addr": "0x00007538",
+   "name": "mcan_set_int_enable",
+   "classification": "vendor",
+   "module": "elock_node",
+   "role": "VENDOR MCAN: OR flags into interrupt-enable byte"
+  },
+  {
+   "addr": "0x000075f4",
+   "name": "read_lid_status",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "Read lid/charger presence status byte (return 2 means lid present -> stop unlock retries). Declare extern."
+  },
+  {
+   "addr": "0x00007ddc",
+   "name": "g_tmag_state_names",
+   "classification": "app",
+   "module": "elock_lock",
+   "role": "TMAG state-name pointer table (8 entries: DEVICE_RESET,STATUS_READ,ID_CHECKED,Z_VAL_READ,THRESHOLD_CONFIGURED,THRESHOLD_DETECTED,DEVICE_AWAKE,DEVICE_ERROR)."
+  }
+ ]
+}

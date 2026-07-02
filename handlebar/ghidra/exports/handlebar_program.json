@@ -1,0 +1,248 @@
+{
+ "target": "handlebar",
+ "program": "handlebar.bin",
+ "image_base": "0x1800",
+ "vector_table": "0x1900",
+ "mcu": "TI MSPM0G (Cortex-M0+, no FPU)",
+ "framework": "VanMoof takahe-fw",
+ "generated_from": "s6-mspm0-reconstruct workflow (Opus); imported+based via MCP",
+ "counts": {
+  "named": 46
+ },
+ "reconstructed_to_c": [
+  "handlebar/src/handlebar_ui.c",
+  "handlebar/src/handlebar_node.c"
+ ],
+ "functions": [
+  {
+   "addr": "0x000019c0",
+   "name": "vm_log_vformat",
+   "role": "Logger format core (vendor-ish printf engine; %d/%u/%x/%X/%s/%c/%p with flags/width/precision)."
+  },
+  {
+   "addr": "0x1eec",
+   "name": "od_rx",
+   "role": "OD RX dispatch: decode 29-bit ID, match in-flight multi-frame slot or static endpoint, reassemble, invoke handler; kind==1 auto-replies"
+  },
+  {
+   "addr": "0x2168",
+   "name": "led_ring_service",
+   "role": "handlebar LED-ring + button multi/long-press animation service (handlebar-specific, outside node layer)"
+  },
+  {
+   "addr": "0x00003028",
+   "name": "od_publish_core",
+   "role": "OD publish transport core: builds 29-bit CAN id from OD descriptor and fragments payloads >8 bytes (vendor transport layer)."
+  },
+  {
+   "addr": "0x3028",
+   "name": "od_publish",
+   "role": "build 29-bit extended CAN ID from OD addr (node/index/subindex) and send payload via driver hook, splitting >8-byte payloads across frames with rolling sub-index"
+  },
+  {
+   "addr": "0x0000313c",
+   "name": "button_fsm_tick",
+   "role": "Button state machine + multi/long-press timer expiry callback. Samples GPIO DIN, advances debounce states (idle/pressed/debounce/release), publishes the 3-byte {id,event,counter} OD frame every tick, arms long-press (1000ms) / multi-press (500ms) timers and logs press/release/multi/long events. Installed as a timer callback via DAT_00003240 (0x313d)."
+  },
+  {
+   "addr": "0x00003568",
+   "name": "can_send",
+   "role": "VENDOR: MCAN/MCP251XFD frame transmit used by led_ring_flush. Deferred."
+  },
+  {
+   "addr": "0x4284",
+   "name": "node_can_init",
+   "role": "program 4 RX acceptance filters/mailboxes (masks 0x4/0x1/0x8/0x2 000000) with node base id, register, enable RX"
+  },
+  {
+   "addr": "0x00004338",
+   "name": "led_ring_enable",
+   "role": "LED-ring enable/(re)init: 3-attempt loop programming SPI control regs, ring-specific IOMUX init (A/B), CAN object open, initial frame flush, then marks ring enabled. Logs 'led_ring_enable retries left %d'."
+  },
+  {
+   "addr": "0x43ec",
+   "name": "od_apply",
+   "role": "image-update OD endpoint handler: sys_image validate->size->CRC(req)->allow_update chain, replies status on bus ('Image CRC failed %u vs %u')"
+  },
+  {
+   "addr": "0x44a0",
+   "name": "node_sm_dispatch",
+   "role": "pending-transaction service loop (10x0x5c slots: deadline/retry/callback); re-publishes due requests, reports -0x91 on expiry"
+  },
+  {
+   "addr": "0x45f4",
+   "name": "sys_image_erase_range",
+   "role": "erase the destination page range for a staged image; logs 'failed to erase page %d (err=%d)', records erased window"
+  },
+  {
+   "addr": "0x00004734",
+   "name": "led_ring_spi_init_b",
+   "role": "VENDOR: MSPM0 DriverLib SPI/IOMUX/clock bring-up for one LED ring (B routing). Deferred."
+  },
+  {
+   "addr": "0x000047cc",
+   "name": "led_ring_spi_init_a",
+   "role": "VENDOR: MSPM0 DriverLib SPI/IOMUX/clock bring-up for one LED ring (A routing). Deferred."
+  },
+  {
+   "addr": "0x4864",
+   "name": "sys_image_erase_pages",
+   "role": "erase a page-aligned run of flash in a sys_image slot and confirm each erase (asserts page alignment)"
+  },
+  {
+   "addr": "0x48fc",
+   "name": "serial_provision",
+   "role": "compare stored 96-byte serial vs default; on mismatch erase serial sector + rewrite serial record (0x18 words) + provisioning blob (0x16 words)"
+  },
+  {
+   "addr": "0x4990",
+   "name": "sys_image_size",
+   "role": "parse staged image header (magic at DAT_0x4a1c, TLV magic at 0x4a20) and return declared image length"
+  },
+  {
+   "addr": "0x4a24",
+   "name": "can_status_poll",
+   "role": "CAN protocol-status poll: reads PSR, drains RX on bus-off, raises Error-Passive/Warning/Bus-Off DTCs, re-arms INIT for recovery"
+  },
+  {
+   "addr": "0x4b44",
+   "name": "sys_image_check_blank",
+   "role": "verify trailer word is 0xffffffff (blank) else erase staged region"
+  },
+  {
+   "addr": "0x4d5c",
+   "name": "node_tick",
+   "role": "main-loop tick: apply pending self-update, publish heartbeat (status 0xa7) on period, service transactions + LED rings"
+  },
+  {
+   "addr": "0x4ddc",
+   "name": "sys_image_allow_update",
+   "role": "stage/allow the update by writing the requested CRC into the image trailer and arming the apply"
+  },
+  {
+   "addr": "0x5270",
+   "name": "can_drain_rx",
+   "role": "drain CAN RX FIFO and feed frames into od_rx dispatch"
+  },
+  {
+   "addr": "0x54f0",
+   "name": "node_main",
+   "role": "main: enter critical, board_init, serial_provision+log serial, node_init, node_can_init, NoRTOS super-loop (node_tick + WFI)"
+  },
+  {
+   "addr": "0x000057a4",
+   "name": "led_ring_cmd_set_new_data",
+   "role": "CAN 'set led new data' command handler: payload [mask, index, R, G, B]; mask bit0=L bit1=R; logs 'D>L/R set led new data' and calls led_ring_set_pixel per selected ring."
+  },
+  {
+   "addr": "0x00005b84",
+   "name": "can_obj_open",
+   "role": "CAN object/filter (re)open used inside led_ring_enable (3-attempt)."
+  },
+  {
+   "addr": "0x6088",
+   "name": "board_init",
+   "role": "peripheral bring-up (clocks/GPIO/CAN/flash subsystems)"
+  },
+  {
+   "addr": "0x60cc",
+   "name": "node_assert",
+   "role": "assertion/panic logger (file,line) used on page-alignment failure"
+  },
+  {
+   "addr": "0x6250",
+   "name": "node_init",
+   "role": "OD/endpoint table + heartbeat buffer bring-up"
+  },
+  {
+   "addr": "0x000062d0",
+   "name": "timer_arm",
+   "role": "Software timer arm: timer_arm(id<16, ms, cb) -> stores period/callback and sets the pending bit; returns -EINVAL if id>=16."
+  },
+  {
+   "addr": "0x65d8",
+   "name": "heartbeat_publish",
+   "role": "publish 8-byte heartbeat OD frame, bump seq byte0, clear latched DTC masks"
+  },
+  {
+   "addr": "0x00006610",
+   "name": "led_ring_set_pixel",
+   "role": "Set one LED colour: asserts index<NUM_LEDS(10), writes packed 32-bit RGB to pixel[index] (off 0x48), sets dirty=2; -EINVAL if ring disabled."
+  },
+  {
+   "addr": "0x00006854",
+   "name": "led_ring_flush",
+   "role": "Push current ring frame to the bus via can_send (3-byte control frame, fdf=0x6e); -EINVAL if disabled."
+  },
+  {
+   "addr": "0x00006ca0",
+   "name": "led_ring_disable",
+   "role": "LED-ring disable: clears enabled/dirty word, logs 'led_ring_disable', snapshots status word to disable register."
+  },
+  {
+   "addr": "0x6dac",
+   "name": "sys_image_open",
+   "role": "open a sys_image slot, fill descriptor {flags=8,cap=0x400,size,base} (vendor MCUboot)"
+  },
+  {
+   "addr": "0x00006dcc",
+   "name": "od_publish",
+   "role": "OD/CAN publish wrapper: emits payload only when descriptor transport state (desc[4]) == 2, else returns -EINVAL; forwards to FUN_00003028."
+  },
+  {
+   "addr": "0x6dcc",
+   "name": "od_send_buf",
+   "role": "low-level OD frame transmit helper used by heartbeat_publish"
+  },
+  {
+   "addr": "0x00006dec",
+   "name": "vm_log",
+   "role": "takahe printf-style logger (variadic wrapper around format core FUN_000019c0; 'D>'/'E>' tagged format strings)."
+  },
+  {
+   "addr": "0x6dec",
+   "name": "vm_log",
+   "role": "printf-style logger (varargs trampoline -> 0x19c0); D>/E> severity-prefixed fmt strings"
+  },
+  {
+   "addr": "0x6f74",
+   "name": "can_set_init",
+   "role": "set/clear CCCR.INIT (bus-off recovery request)"
+  },
+  {
+   "addr": "0x7004",
+   "name": "can_save_status",
+   "role": "stash last CAN error status words"
+  },
+  {
+   "addr": "0x70e8",
+   "name": "dtc_clear",
+   "role": "clear DTC bit(s); called with 0xff to clear all"
+  },
+  {
+   "addr": "0x70f8",
+   "name": "dtc_set",
+   "role": "OR DTC bit(s) into heartbeat high-status byte"
+  },
+  {
+   "addr": "0x7118",
+   "name": "od_reply",
+   "role": "send an OD endpoint reply frame (trampoline into od_publish 0x3028)"
+  },
+  {
+   "addr": "0x719c",
+   "name": "can_read_psr",
+   "role": "read CAN protocol-status register at node+PSR_OFF"
+  },
+  {
+   "addr": "0x000071cc",
+   "name": "button_ctx",
+   "role": "Button context lookup: returns button_ctx_table[id] from the u32 pointer table at 0x20201f10."
+  },
+  {
+   "addr": "0x00007e60",
+   "name": "button_od_desc",
+   "role": "Button OD object descriptor {id=0x010008c0, fmt=2, len=3, period=100} published by button_fsm_tick."
+  }
+ ]
+}

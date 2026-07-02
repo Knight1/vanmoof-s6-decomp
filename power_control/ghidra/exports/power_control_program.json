@@ -1,0 +1,147 @@
+{
+ "target": "power_control",
+ "program": "power_control.bin",
+ "image_base": "0x1800",
+ "vector_table": "0x1900",
+ "mcu": "TI MSPM0G (Cortex-M0+, no FPU)",
+ "framework": "VanMoof takahe-fw + Microchip MCP251XFD CAN-FD (SPI)",
+ "generated_from": "s6-mspm0-reconstruct workflow (Opus); imported+based via MCP",
+ "counts": {
+  "named": 26
+ },
+ "reconstructed_to_c": [
+  "power_control/src/power_node.c"
+ ],
+ "functions": [
+  {
+   "addr": "0x000019c0",
+   "name": "mcp_isr_service",
+   "role": "MCP251XFD interrupt service/dispatch: decode top int code (0x41..0x4a + ECC/CRC default), log Ext1: events, clear, raise DTC, pump RX/TEF to OD"
+  },
+  {
+   "addr": "0x00003848",
+   "name": "od_write_multiframe",
+   "role": "vm-protocol fragmented OD write (2/4/8-byte frames, ISO-TP-like sub-index)"
+  },
+  {
+   "addr": "0x000041a8",
+   "name": "od_send",
+   "role": "OD/CAN publish core: builds 29-bit ext id (node<<5 | OD addr | dir), single + fragmented transmit via entry send vtable"
+  },
+  {
+   "addr": "0x00005248",
+   "name": "mcp_enter_sleep",
+   "role": "MCP251XFD ConfigureSleepMode + EnterSleepMode; aborts if int line still asserted"
+  },
+  {
+   "addr": "0x000059c8",
+   "name": "node_sm_dispatch",
+   "role": "node state-machine tick over 10 slots x0x5c; fire OD action or report busy via slot callback"
+  },
+  {
+   "addr": "0x00005a74",
+   "name": "adc_torque_handler",
+   "role": "ADC torque node handler: read 12-bit ADC, scale/offset, saturate, deadband, publish torque OD frame (D>ADC Torque)"
+  },
+  {
+   "addr": "0x00005ce4",
+   "name": "mcp_init",
+   "role": "MCP251XFD bring-up: reset, configure, FIFO/filter lists, StartCAN20 (Init_MCP251XFD)"
+  },
+  {
+   "addr": "0x00005ea0",
+   "name": "mcp_bus_diag",
+   "role": "MCP251XFD bus diagnostic: error-warning/passive/bus-off DTC + recovery (D>Bus_Off Status, recovering)"
+  },
+  {
+   "addr": "0x00006154",
+   "name": "mcp_read_busdiag",
+   "role": "VENDOR MCP251XFD bus-diagnostic read"
+  },
+  {
+   "addr": "0x00006e5c",
+   "name": "node_tick",
+   "role": "super-loop body: bus diag, controller health/re-init, node_sm_dispatch, mcp_isr_service"
+  },
+  {
+   "addr": "0x00007330",
+   "name": "dtc_set",
+   "role": "DTC set (ids 0x14..0x4b, DTC_MAX); sets active bit + latches pending mask; heartbeat.c"
+  },
+  {
+   "addr": "0x0000748c",
+   "name": "sat_u16",
+   "role": "saturate/clamp signed value to u16 with limit"
+  },
+  {
+   "addr": "0x00007a34",
+   "name": "power_main",
+   "role": "main(): node init, log serial + RDP, run super-loop calling node_tick"
+  },
+  {
+   "addr": "0x00007bd0",
+   "name": "node_assert_fail",
+   "role": "assert handler: (expr,file,line) -> 'Assertion failed' + halt"
+  },
+  {
+   "addr": "0x00007cd4",
+   "name": "mcp_clear_int",
+   "role": "VENDOR MCP251XFD ClearInterruptEvents"
+  },
+  {
+   "addr": "0x00007dd4",
+   "name": "u32_div",
+   "role": "vendor unsigned 32-bit divide (udivmod helper)"
+  },
+  {
+   "addr": "0x00007e14",
+   "name": "battery_wake_handler",
+   "role": "battery wake-pulse node handler: assert wake GPIO, arm timed pulse (D>Battery wake pulse %d ms)"
+  },
+  {
+   "addr": "0x00007e54",
+   "name": "od_timer_register",
+   "role": "register an OD/CAN timed action (id<16): stores cb+ctx, marks active bit"
+  },
+  {
+   "addr": "0x0000818c",
+   "name": "heartbeat_publish",
+   "role": "publish 8-byte heartbeat OD frame, bump seq, clear pending-DTC mask"
+  },
+  {
+   "addr": "0x000085c8",
+   "name": "irq_dispatcher_register",
+   "role": "irq_dispatcher.c: register handler for line 0/1 into slot table @0x20200d8c"
+  },
+  {
+   "addr": "0x000089dc",
+   "name": "node_announce",
+   "role": "publish node-online/announce OD frame when not suppressed"
+  },
+  {
+   "addr": "0x00008b4c",
+   "name": "od_publish",
+   "role": "od_send wrapper, only emits on writable (type==2) OD endpoint"
+  },
+  {
+   "addr": "0x00008b6c",
+   "name": "vm_log",
+   "role": "printf-style logger varargs shim (D>/E> format strings); inner formatter FUN_000022d0"
+  },
+  {
+   "addr": "0x00008dd0",
+   "name": "heartbeat_tick",
+   "role": "set keep-alive DTC then heartbeat_publish"
+  },
+  {
+   "addr": "0x00008e8c",
+   "name": "dtc_set_from_diag",
+   "role": "DTC set from bus-diag path (error-warning/passive/bus-off)"
+  },
+  {
+   "addr": "0x00008ecc",
+   "name": "mcp_get_current_int",
+   "role": "VENDOR MCP251XFD GetCurrentInterruptEvent"
+  }
+ ]
+}
