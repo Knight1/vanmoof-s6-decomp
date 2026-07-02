@@ -69,11 +69,11 @@
   },
   {
    "addr": "0x261d0",
-   "name": "shell_cmd_h_261d0",
+   "name": "shell_cmd_audio_set",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler \u2014 recovered from gap (shell table 0x95980), pending decode",
+   "role": "shell 'audio' subcmd: commit one u8 audio-config byte",
    "gap_recovered": true
   },
   {
@@ -102,11 +102,11 @@
   },
   {
    "addr": "0x26890",
-   "name": "shell_cmd_h_26890",
+   "name": "shell_cmd_bell_set",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler \u2014 recovered, pending decode",
+   "role": "shell 'bell' subcmd: store the u16 bell-sound id",
    "gap_recovered": true
   },
   {
@@ -223,20 +223,20 @@
   },
   {
    "addr": "0x282a8",
-   "name": "vmtp_cmd_h_282a8",
+   "name": "vmtp_cmd_lockstate_report",
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "low",
-   "role": "command handler \u2014 recovered, pending decode",
+   "role": "BLE lock-state read (OD 0x191): reports the cached lock-state byte",
    "gap_recovered": true
   },
   {
    "addr": "0x282cc",
-   "name": "vmtp_cmd_h_282cc",
+   "name": "vmtp_cmd_lockstate_set",
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "low",
-   "role": "command handler \u2014 recovered, pending decode",
+   "role": "BLE lock-state write (OD 0x191): set lock-state, persist to NVS, republish, play cue",
    "gap_recovered": true
   },
   {
@@ -253,16 +253,16 @@
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "high",
-   "role": "BLE lock/unlock command (OD 0x163): gated on elock_is_present, drives the elock motor (same timer/scaling as the elock FSM)",
+   "role": "BLE lock/unlock command (OD 0x163): drives the elock motor (latch target+dir, kick task, arm timer; 0=open via CAN 0x1900)",
    "gap_recovered": true
   },
   {
    "addr": "0x28574",
-   "name": "vmtp_cmd_h_28574",
+   "name": "vmtp_cmd_fmna_event",
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "low",
-   "role": "command handler \u2014 recovered, pending decode",
+   "role": "BLE Find My trigger (OD 0x16b): submits the FMNA AEM event",
    "gap_recovered": true
   },
   {
@@ -531,20 +531,20 @@
   },
   {
    "addr": "0x2d040",
-   "name": "shell_cmd_h_2d040",
+   "name": "shell_cmd_light_thresholds_set_u16",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler \u2014 recovered, pending decode",
+   "role": "shell 'light_thresholds': set a u16 threshold field",
    "gap_recovered": true
   },
   {
    "addr": "0x2d050",
-   "name": "shell_cmd_h_2d050",
+   "name": "shell_cmd_light_thresholds_set_u32",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler \u2014 recovered, pending decode",
+   "role": "shell 'light_thresholds': set a u32 threshold field",
    "gap_recovered": true
   },
   {
@@ -631,11 +631,11 @@
   },
   {
    "addr": "0x2f120",
-   "name": "vmtp_cmd_h_2f120",
+   "name": "vmtp_cmd_diag_report",
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "low",
-   "role": "command handler \u2014 recovered from gap (dispatch table 0x958e0), pending decode",
+   "role": "BLE diag read (OD 0x1b2): publishes the 0x20-byte diagnostic blob",
    "gap_recovered": true
   },
   {
@@ -644,16 +644,16 @@
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "medium",
-   "role": "BLE 'version' command (OD 0x1b1): reports /fs/version + the staged /fs/firmware.pak version as %u.%u.%u.%u",
+   "role": "BLE 'version' command (OD 0x1b1): reports /fs/version + staged /fs/firmware.pak version",
    "gap_recovered": true
   },
   {
    "addr": "0x2f6b4",
-   "name": "vmtp_cmd_h_2f6b4",
+   "name": "vmtp_cmd_diag_log",
    "classification": "app",
    "subsystem": "can-dispatch",
    "recon_priority": "low",
-   "role": "command handler \u2014 recovered, pending decode",
+   "role": "BLE diag write (OD 0x1b2): formats a diag string into the shared buffer under LDREX/STREX",
    "gap_recovered": true
   },
   {
@@ -692,11 +692,11 @@
   },
   {
    "addr": "0x30e24",
-   "name": "shell_cmd_h_30e24",
+   "name": "shell_cmd_color_map_set",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler \u2014 recovered, pending decode",
+   "role": "shell 'color_map': set the 16B LED ring RGB color map",
    "gap_recovered": true
   },
   {
@@ -822,11 +822,11 @@
   },
   {
    "addr": "0x32944",
-   "name": "shell_cmd_h_32944",
+   "name": "shell_cmd_ema_range_params_set",
    "classification": "app",
    "subsystem": "shell",
    "recon_priority": "low",
-   "role": "shell command handler (326B) \u2014 recovered, pending decode",
+   "role": "shell 'ema_range_params': load+validate the 40B range-estimator table",
    "gap_recovered": true
   },
   {
@@ -1034,5 +1034,14 @@
   "od_id_table": "0x958e0",
   "shell_name_table": "0x95980",
   "note": "OD/command-id -> handler table at 0x958e0 (ids 0x100-0x202). Confirmed: 0x10e=firmware, 0x1b1=version, 0x163=elock(lock/unlock). Shell name->handler table at 0x95980. Handlers reached only via these tables (no code xref); recover with create_function then decode."
+ },
+ "command_map_decoded": {
+  "OD 0x163": "elock lock/unlock (vmtp_cmd_elock)",
+  "OD 0x16b": "Find My trigger (vmtp_cmd_fmna_event)",
+  "OD 0x191": "lock-state get/set (vmtp_cmd_lockstate_report/set)",
+  "OD 0x1b1": "version (vmtp_cmd_version)",
+  "OD 0x1b2": "diag report/log (vmtp_cmd_diag_report/log)",
+  "cmd firmware": "firmware staging -> /fs/firmware.pak (vmtp_cmd_firmware)",
+  "shell": "audio/bell/btn/color_map/ema_range_params/light_thresholds setters"
  }
 }

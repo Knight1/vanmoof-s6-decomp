@@ -232,9 +232,22 @@ recovers them. Recovered this pass (named where decoded, else `*_cmd_h_<addr>` p
 decode): `vmtp_cmd_version` `0x2f550`, `vmtp_cmd_elock` `0x284b8`, + `vmtp_cmd_h_2f120/
 2f6b4/28574/282a8/282cc` and shell handlers `0x261d0/26890/30e24/32944/2d040/2d050`.
 
-> **Next pass:** walk the `0x958e0` table to read every (id, handler) pair, decode the
-> remaining `vmtp_cmd_*` handlers (the full BLE command set the phone can issue), and
-> reconstruct them to C. Good **workflow** target (one agent per handler).
+**Decoded BLE command set** (OD id → handler, all reconstructed to C in
+`ble/src/vmtp_commands.c`):
+
+| OD id | command | handler | what it does |
+|---|---|---|---|
+| `0x163` | **elock** | `vmtp_cmd_elock` `0x284b8` | lock/unlock — drives the lock motor (nonzero=move, 0=open via CAN `0x1900`) |
+| `0x16b` | **find my** | `vmtp_cmd_fmna_event` `0x28574` | submit the FMNA (Apple Find My) AEM event |
+| `0x191` | **lock state** | `vmtp_cmd_lockstate_report/_set` `0x282a8`/`0x282cc` | read / write+persist the lock-state byte (set plays an audio cue) |
+| `0x1b1` | **version** | `vmtp_cmd_version` `0x2f550` | report `/fs/version` + staged `/fs/firmware.pak` version |
+| `0x1b2` | **diag** | `vmtp_cmd_diag_report/_log` `0x2f120`/`0x2f6b4` | read the 0x20-byte diag blob / write a diag string |
+| `"firmware"` | **firmware** | `vmtp_cmd_firmware` `0x2ff30` (+ `vmtp_cmd_permission_check` `0x2ff14`) | permission-gated firmware staging → `/fs/firmware.pak` |
+
+The Zephyr **shell** handlers (`ble/src/shell_commands.c`): `audio`, `bell`, `btn`
+(touch-unlock), `color_map` (LED ring RGB), `ema_range_params` (range estimator),
+`light_thresholds` (u16/u32). The `ipipe` pipeline (`ble/src/vmtp_ipipe.c`) parses the
+inbound message and invokes the registered handler. All compile clean; Sonnet-verified.
 
 ### Backup-unlock — offline unlock-code security path (`0x31600`–`0x317c0`)
 | addr | name | role |
