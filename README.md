@@ -4,8 +4,8 @@ Clean-room rebuild of the **VanMoof S6** firmware from decompilations, producing
 buildable source trees that re-emit binary-equivalent (or behaviour-equivalent)
 images.
 
-Sibling to [`vanmoof-s5-decomp`](../vanmoof-s5-decomp) (S5/A5) and
-[`vanmoof-s3-decomp`](../vanmoof-s3-decomp) (S3/X3). The S6 reuses the **S5-generation
+Sibling to [`vanmoof-s5-decomp`](https://github.com/Knight1/vanmoof-s5-decomp) (S5/A5) and
+[`vanmoof-s3-decomp`](https://github.com/Knight1/vanmoof-s3-decomp) (S3/X3). The S6 reuses the **S5-generation
 CAN-bus architecture**: a fleet of **Cortex-M sub-ECUs** on a CAN bus, a **BLE
 SoC** (Nordic nRF5x), and a **cellular modem** (Nordic nRF91x1). This repo
 decomposes that stack target by target, following the same conventions as the
@@ -83,7 +83,7 @@ images need a nonzero Ghidra slot **base**; raw images load at `0x0`.
 
 > The on-wire CAN ID/node mapping is expected to follow the S5 `vm` protocol
 > (29-bit IDs + Object-Dictionary addressing); ground-truth it against the
-> sibling [`../canbus`](../canbus) analyzer + an S6 capture before relying on any
+> sibling [`vanmoof-canbus`](https://github.com/Knight1/vanmoof-canbus) analyzer + an S6 capture before relying on any
 > specific ID.
 
 Each target subdirectory follows the S3/S5 convention: `src/`, `include/`,
