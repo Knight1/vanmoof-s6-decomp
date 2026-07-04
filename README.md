@@ -43,7 +43,7 @@ images need a nonzero Ghidra slot **base**; raw images load at `0x0`.
 | [`frontlight`](frontlight/) | raw | `0x0` | **NXP LPC546xx** (M4F), VMFW@`0x134` | updater/bootstrap partition |
 | [`rearlight`](rearlight/) | raw | `0x0` | NXP LPC546xx-class (M3/M4), VMFW@`0x134` | updater partition |
 | [`motor_sensor`](motor_sensor/) | raw | `0xC00` | ARM Cortex-M4 (small), VMFW@`0x134` | updater + string-silent sensor/CAN |
-| [`charger`](charger/) | raw | `0x0` | **Renesas RA** (M33) | LiteON supplier fw (no VanMoof strings; OD layer only if any) |
+| [`charger`](charger/) | raw | `0x0` | **LiteON** (Renesas RA / M33 + Bosch M_CAN) | supplier fw — **byte-identical to S5** (SHA-256 match, both variants); reconstructed in [`../vanmoof-s5-decomp/charger`](../vanmoof-s5-decomp/charger), not re-done |
 
 > `takahe-fw` is VanMoof's in-house monorepo backing the TI MSPM0 CAN nodes; the modem
 > absorbed the S5 i.MX8 Go-gateway cloud role. The tables below are the *initial
@@ -77,7 +77,7 @@ images need a nonzero Ghidra slot **base**; raw images load at `0x0`.
 
 | Component | Image | Vendor | Size | Status |
 | --- | --- | --- | --- | --- |
-| [`charger`](charger/) | `charger-liteon-normal-v1.8.0.bin`, `charger-liteon-speed-v1.2.0.bin` | LiteON charger HW; only the **VanMoof CAN/OD protocol layer** inside is in scope | ~23 KB each | pending |
+| [`charger`](charger/) | `charger-liteon-normal-v1.8.0.bin`, `charger-liteon-speed-v1.2.0.bin` | LiteON charger HW — **byte-identical to the S5 charger** (both variants, SHA-256 match); covered by [`../vanmoof-s5-decomp/charger`](../vanmoof-s5-decomp/charger) | ~23 KB each | done (= S5) |
 | — | `mfw_nrf91x1-v2.0.2.cbor` | Nordic modem firmware (CBOR) | ~2.0 MB | vendor — not reconstructed (analysed under `modem/`) |
 | — | `animations.pak` | LED animation data | ~18 KB | data asset — not code |
 
