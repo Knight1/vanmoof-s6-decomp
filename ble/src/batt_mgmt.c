@@ -347,3 +347,176 @@ void batt_charge_stop(void)
     batt_charge_disable();
     *g_batt_charging_flag = 0;
 }
+
+/* -------------------------------------------------------------------------
+ * Pack-state update path (charger/BMS record ingest) — 0x2c064..0x2c313.
+ * ------------------------------------------------------------------------- */
+
+/* OD request builder: issue a read for `od` on device `req[0]`, <0 on error.    */
+extern int  od_read_request(void *ctx, uint32_t od, void *req,
+                            int a, int b, int c, int d);                        /* 0x79bb2 */
+/* Per-bit diff of two bitmaps: for each of `nbits`, a bit that went 1->0 is
+ * published as OD (class<<8 | base+i); a bit that went 0->1 raises its DTC.      */
+extern void batt_publish_bit_deltas(void *stored, const void *incoming,
+                                    unsigned nbits, int cls, int base);         /* 0x6cd02 */
+/* Re-arm a pack's poll timer (Zephyr k_timer, 64-bit timeout) — vendor.          */
+extern void batt_pack_reschedule(void *pack, uint32_t r1, int lo, int hi,
+                                 int a, int b);                                 /* 0x64594 */
+
+/* charge-retry counter + its trace. */
+extern uint8_t *g_batt_fail_count;               /* DAT_0002c12c               */
+extern uint8_t  g_log_batt_retry[];              /* DAT_0002c130               */
+extern void    *g_msg_batt_retry;                /* DAT_0002c134               */
+
+/* version/serial query OD ids + trace. */
+extern uint32_t g_od_batt_serial;                /* DAT_0002c0e4               */
+extern uint32_t g_od_batt_version;               /* PTR_DAT_0002c0f0           */
+extern uint8_t  g_log_batt_query[];              /* DAT_0002c0e8               */
+
+/* pack-state-update trace module + the state/version event arg constants. */
+extern uint8_t  g_log_batt_state[];              /* DAT_0002c2fc               */
+extern uint32_t g_evt_state_a, g_evt_state_b;    /* DAT_0002c304 / DAT_0002c300 */
+extern uint32_t g_evt_ver_a, g_evt_ver_b, g_evt_ver_c; /* 0x2c310/308/30c      */
+
+#define BMS_CLASS_CHARGER  0xa2      /* -0x5e signed: the charger node class      */
+#define PACK_STATE(p)      ((uint8_t *)(p) + 0x48)   /* state byte                */
+#define PACK_STATUS(p)     ((uint8_t *)(p) + 0x49)   /* lo nibble=status, hi=health */
+#define PACK_FAULTS(p)     ((uint8_t *)(p) + 0x4a)   /* 48-bit (0x30 B) fault map  */
+
+/* -------------------------------------------------------------------------
+ * batt_charge_retry  --  0x2c0f8
+ *
+ * Called after each charger measurement with `failed` = (no valid sample).
+ * A good sample resets the fail counter; three consecutive failures stop the
+ * charge.
+ * ------------------------------------------------------------------------- */
+void batt_charge_retry(int failed)
+{
+    if (failed == 0) {
+        *g_batt_fail_count = 0;
+        return;
+    }
+    if ((g_log_batt_retry[0] & 6) != 0)
+        aem_raise(g_log_batt_retry, 2, (void *)g_msg_batt_retry);
+    if (++*g_batt_fail_count > 3)
+        batt_charge_stop();
+}
+
+/* -------------------------------------------------------------------------
+ * batt_query_versions  --  0x2c064
+ *
+ * Issue the serial-number and firmware-version OD reads for charger device
+ * `dev` (its index goes in byte 0 of the request; the OD id's mid/high bytes
+ * fill bytes 1/2).  Each failed request is traced.
+ * ------------------------------------------------------------------------- */
+void batt_query_versions(void *ctx, uint8_t dev)
+{
+    uint8_t req[3];
+    int rc;
+
+    req[0] = dev;
+    req[1] = (uint8_t)(g_od_batt_serial >> 8);
+    req[2] = (uint8_t)(g_od_batt_serial >> 16);
+    rc = od_read_request(ctx, g_od_batt_serial, req, 0, 0, 0, 0);
+    if (rc != 0 && (g_log_batt_query[0] & 7) != 0)
+        vm_logf(g_log_batt_query, 1, "unable to query serial number for device %d: %d", dev, rc);
+
+    req[0] = dev;
+    req[1] = (uint8_t)(g_od_batt_version >> 8);
+    req[2] = (uint8_t)(g_od_batt_version >> 16);
+    rc = od_read_request(ctx, g_od_batt_version, req, 0, 0, 0, 0);
+    if (rc != 0 && (g_log_batt_query[0] & 7) != 0)
+        vm_logf(g_log_batt_query, 1, "unable to query version for device %d: %d", dev, rc);
+}
+
+/* -------------------------------------------------------------------------
+ * batt_pack_state_update  --  0x2c138
+ *
+ * Ingest an aggregated charger/BMS status record (`*data`) for the pack whose
+ * object-class byte is hdr[2].  Diff it against the stored pack state and
+ * publish the deltas: a changed state byte is traced; a changed status nibble
+ * is emitted as an OD (old) + DTC (new); the health nibble and the 48-bit fault
+ * map are diffed bit-for-bit (cleared -> OD, set -> DTC).  The new record is then
+ * stored.  For the charger class, the latest measurement drives the charge-retry
+ * counter; whenever a pack has no valid measurement it is (re)identified via a
+ * version/serial query and its work item is signalled.  Finally the pack's poll
+ * timer is re-armed.  Returns 0 when a matching pack was updated, -EINVAL else.
+ * ------------------------------------------------------------------------- */
+int32_t batt_pack_state_update(void *ctx, uint32_t r1, const uint8_t *hdr,
+                               const uint8_t **data)
+{
+    int i;
+
+    (void)r1;
+    if (g_batt_initialized == 0)
+        return 0;
+
+    for (i = 0; i < NUM_PACKS; i++) {
+        uint8_t *meta = g_batt_meta + i * META_STRIDE;
+        uint8_t  id   = META_ID(meta);
+
+        if (id != hdr[2])
+            continue;
+
+        {
+            const uint8_t *in   = *data;
+            uint8_t       *pack = g_batt_packs + i * PACK_STRIDE;
+            unsigned old_status = *PACK_STATUS(pack) & 0xf;
+            unsigned new_status = in[1] & 0xf;
+            uint8_t  old_health = *PACK_STATUS(pack) >> 4;
+            uint8_t  new_health = in[1] >> 4;
+            uint64_t sample;
+
+            /* state byte changed (stored value is kept +1) */
+            if (in[0] != (uint8_t)(*PACK_STATE(pack) + 1) && (g_log_batt_state[0] & 6) != 0) {
+                struct { uint32_t a, b, name; uint32_t obj; uint16_t code; } e;
+                e.a = g_evt_state_a; e.b = g_evt_state_b;
+                e.name = *(uint32_t *)(meta + 4);
+                e.obj  = hdr[2];
+                e.code = 0x200;
+                aem_log_v(g_log_batt_state, 0x2480, &e, 0);
+            }
+
+            /* status nibble: publish old over OD, raise new as DTC */
+            if (old_status != new_status && (in[1] & 0xe) != 0) {
+                uint32_t od = (uint32_t)id << 8;
+                ps_canbus_od_send(od | old_status);
+                dtc_set(od | new_status);
+            }
+
+            /* health nibble (4 bits) + 48-bit fault map diffs.
+             * (The OEM health-delta call passes only r0-r2; the class/base come
+             * from residual registers — reconstructed as this pack's class.) */
+            batt_publish_bit_deltas(&old_health, &new_health, 4, id, 0);
+            batt_publish_bit_deltas(PACK_FAULTS(pack), in + 2, 0x30, id, 0);
+
+            /* store the new state/status + first 8 record bytes */
+            *(uint32_t *)PACK_STATE(pack)       = *(const uint32_t *)in;
+            *(uint32_t *)(PACK_STATE(pack) + 4) = *(const uint32_t *)(in + 4);
+
+            /* charger class: latest measurement drives the retry/stop counter */
+            if (hdr[2] == BMS_CLASS_CHARGER) {
+                sample = batt_pack_measure(pack);
+                batt_charge_retry(sample == 0);
+            }
+
+            /* no valid measurement -> (re)identify the pack + kick its work */
+            sample = batt_pack_measure(pack);
+            if (sample == 0) {
+                if ((int)(g_log_batt_state[0] << 0x1d) < 0) {
+                    struct { uint32_t a, b, c; uint32_t obj; uint16_t code; } e;
+                    e.a = g_evt_ver_a; e.b = g_evt_ver_b; e.c = g_evt_ver_c;
+                    e.obj  = *(uint32_t *)(meta + 4);
+                    e.code = 0x301;
+                    aem_log_v(g_log_batt_state, 0x2d00, &e, 0);
+                }
+                batt_query_versions(ctx, hdr[2]);
+                k_work_submit(PACK_WORK(pack));
+            }
+
+            batt_pack_reschedule(pack, 0, 0xc000, 0, 0, 0);
+            return 0;
+        }
+    }
+    return -22;   /* -EINVAL: no matching pack */
+}
