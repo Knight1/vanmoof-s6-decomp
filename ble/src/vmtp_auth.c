@@ -66,6 +66,92 @@ int vmtp_auth_signature_verify(const void *ca_ctx, const uint8_t *blob,
     return VM_EINVAL;
 }
 
+/* record-codec field readers used by the cert parser (vendor CBOR/record lib). */
+extern int  record_reader_remaining(void *rd);          /* nonzero while fields left */
+extern int  record_reader_finish(void *rd);             /* 0x76d24 (nonzero = ok)     */
+extern int  record_read_tag(void *rd, void **tag_out);  /* 0x77038 (tag byte)         */
+extern int  record_read_blob2(void *rd, struct rec_field *out); /* 0x77032            */
+extern int  record_read_id(void *rd, void *out8);       /* 0x76f96 ('i' subject id)   */
+extern int  record_read_time(void *rd, void *out);      /* 0x76f36 ('e' validity)     */
+extern int  record_read_u8(void *rd, void *out);        /* 0x76f5e ('r' role)         */
+extern int  record_read_validate(void *rd, int z);      /* 0x77192 ('f' signature)    */
+extern void mem_copy_bounded(void *dst, const void *src, unsigned n); /* 0x7b26a      */
+
+/* cert_parse_into_session @ 0x784ac — decode the tagged certificate body into the
+ * per-connection session.  The cert is a record of single-char-tagged fields; the
+ * VanMoof-specific mapping into the 0x80-byte session:
+ *
+ *   'i' subject id   -> SES_SUBJECT (+0x00, u64: id at +0x04, "id: %lld")
+ *   'b' body blob    -> SES_PUBINFO (+0x08, <=16 B; published over OD)
+ *   'e' validity     -> +0x18 (expiry; checked against synced system time)
+ *   'r' ROLE byte    -> SES_CERT_ROLE (+0x20) — the certificate's authorisation
+ *                       role, logged as "role: 0x%02X" and emitted on the app
+ *                       event bus (chan 4 / id 0xff03). A single opaque byte:
+ *                       the ble ECU does NOT enumerate or gate on it — the value
+ *                       is assigned by VanMoof's cert authority and enforced
+ *                       app/cloud-side; the firmware only reports it.
+ *   'o' owner id     -> +0x22 (<=0x24 B) and SES_ID_IS_OWNER (+0x21) = 1
+ *   'u' user id      -> +0x22 (<=0x10 B) and SES_ID_IS_OWNER (+0x21) = 0
+ *   'p' public key   -> SES_KEYCTX (+0x46, <=0x20 B; verifies the challenge sig)
+ *   'f' signature    -> validated in-place (record_read_validate)
+ *
+ * Returns 0 on a complete, well-formed certificate; -10 on a truncated/short
+ * record; -11 on an unknown tag or malformed field. */
+int cert_parse_into_session(const void *cert, unsigned len, uint8_t *session)
+{
+    uint8_t rd[0x90];        /* record-reader state (OEM auStack_c4 + scratch) */
+    struct rec_field f;
+    void *tag;
+    uint8_t role;
+
+    thunk_record_reader_init(rd, 5, cert, len, 1, (void *)0, 0);
+    mem_zero(session, 0, 0x68);
+
+    if (record_reader_remaining(rd) == 0)
+        return -10;                          /* 0xfffffff6 */
+
+    while (record_reader_remaining(rd) != 0) {
+        if (record_read_tag(rd, &tag) == 0)
+            return -10;
+        switch (*(uint8_t *)tag) {
+        case 'i':                            /* subject id -> +0x00 */
+            if (record_read_id(rd, session) == 0) return -11;
+            break;
+        case 'b':                            /* body blob -> SES_PUBINFO (<=16) */
+            if (record_read_blob2(rd, &f) == 0) return -11;
+            mem_copy_bounded(SES_PUBINFO(session), f.ptr, f.len > 0x10 ? 0x10 : f.len);
+            break;
+        case 'e':                            /* validity -> SES_VALIDITY */
+            if (record_read_time(rd, SES_VALIDITY(session)) == 0) return -11;
+            break;
+        case 'r':                            /* ROLE -> SES_CERT_ROLE */
+            if (record_read_u8(rd, &role) == 0) return -11;
+            SES_CERT_ROLE(session) = role;
+            break;
+        case 'o':                            /* owner id -> SES_ID_BLOB (<=0x24) */
+            if (record_read_blob2(rd, &f) == 0) return -11;
+            mem_copy_bounded(SES_ID_BLOB(session), f.ptr, f.len > 0x24 ? 0x24 : f.len);
+            SES_ID_IS_OWNER(session) = 1;
+            break;
+        case 'u':                            /* user id -> SES_ID_BLOB (<=0x10) */
+            if (record_read_blob2(rd, &f) == 0) return -11;
+            mem_copy_bounded(SES_ID_BLOB(session), f.ptr, f.len > 0x10 ? 0x10 : f.len);
+            SES_ID_IS_OWNER(session) = 0;
+            break;
+        case 'p':                            /* pubkey -> SES_KEYCTX (<=32) */
+            if (record_read_blob2(rd, &f) == 0) return -11;
+            mem_copy_bounded(SES_KEYCTX(session), f.ptr, f.len > 0x20 ? 0x20 : f.len);
+            break;
+        case 'f':                            /* embedded signature (validate) */
+            if (record_read_validate(rd, 0) == 0) return -11;
+            break;
+        default:
+            return -11;                      /* 0xfffffff5 unknown tag */
+        }
+    }
+    return record_reader_finish(rd) != 0 ? 0 : -10;
+}
+
 /* vmtp_auth_cert_extract @ 0x5732c — pull the certificate record out of the
  * inbound payload and hand it to the signature verifier. */
 int vmtp_auth_cert_extract(const void *ca_ctx, const void *payload,
