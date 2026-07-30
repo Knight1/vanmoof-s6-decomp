@@ -28,7 +28,9 @@
 
 /* ---- AEM event bus -------------------------------------------------------- */
 extern void *aem_event_alloc(int size, uint16_t id, int chan);        /* 0x77cfc */
-extern void  aem_event_submit(void);                                  /* 0x55564 */
+/* Deliver a built event to the command subscriber; this is the SAME OEM routine
+ * whose body od_publish_record inlines below (0x55564 takes the event pointer). */
+extern void  aem_event_submit(void *ev);                              /* 0x55564 */
 extern void  aem_log_v(void *mod, uint32_t code, void *arg, int z);   /* 0x364f0 */
 extern void  vmtp_pkt_unref(void *ev);                                /* 0x5661c */
 
@@ -73,8 +75,9 @@ extern void   **g_elock_state_names;   /* DAT_0002740c                          
 extern uint32_t g_elock_evt_a, g_elock_evt_b;  /* DAT_00027410 / DAT_00027414    */
 
 /* ---- config getter multiplexer ------------------------------------------- */
-extern void od_publish_u32(uint16_t od, void *val, int len, uint32_t v, uint16_t od2); /* 0x6d50c */
-extern uint32_t *g_cfg_0x112;          /* DAT_00031ef4 */
+/* Builds + returns the OD response event (delivered via aem_event_submit).      */
+extern void *od_publish_u32(uint16_t od, void *val, int len, uint32_t v, uint16_t od2); /* 0x6d50c */
+extern uint16_t *g_cfg_0x112;          /* DAT_00031ef4 (16-bit value) */
 extern uint32_t *g_cfg_0x113;          /* DAT_00031ef8 */
 extern uint32_t *g_cfg_0x114;          /* DAT_00031efc */
 extern uint32_t *g_cfg_0x115;          /* DAT_00031f00 */
@@ -120,9 +123,10 @@ void od_cmd_elock_set(const uint8_t *req, uint32_t r1)
     elock_mutex_lock(g_elock_mutex, (void *)(uintptr_t)r1, -1, -1);
 
     if ((g_elock_state[0] & 7) > 2) {
-        struct { void *name; uint32_t a; uint16_t code; } e;
+        struct { uint32_t b, a; void *name; uint16_t code; } e;
+        e.b    = g_elock_evt_b;
+        e.a    = g_elock_evt_a;
         e.name = g_elock_state_names[want];
-        e.a    = g_elock_evt_b;
         e.code = 0x200;
         aem_log_v(g_elock_state, 0x1cc0, &e, 0);
     }
@@ -150,18 +154,20 @@ void od_cmd_config_read(const uint8_t *req, uint32_t r1, uint32_t r2)
     uint16_t od = *(const uint16_t *)(req + 1);
     uint32_t val;
 
+    void *ev;
+
     (void)r1;
     switch (od) {
-    case 0x112: val = *g_cfg_0x112; break;
+    case 0x112: val = *g_cfg_0x112; break;   /* OEM reads 0x112 as a u16 */
     case 0x113: val = *g_cfg_0x113; break;
     case 0x114: val = *g_cfg_0x114; break;
     case 0x115: val = *g_cfg_0x115; break;
     default:    return;
     }
 
-    od_publish_u32(od, &val, 4, val, od);
+    ev = od_publish_u32(od, &val, 4, val, od);
     (void)r2;
-    aem_event_submit();
+    aem_event_submit(ev);
 }
 
 /* -------------------------------------------------------------------------
@@ -176,7 +182,7 @@ void od_cmd_notify_u8(void)
     uint8_t *ev = aem_event_alloc(1, 0x100, 1);
     if (ev != NULL)
         ev[5] = v;
-    aem_event_submit();
+    aem_event_submit(ev);
 }
 
 /* -------------------------------------------------------------------------
@@ -254,7 +260,7 @@ int32_t od_set_identity(const uint8_t *req)
 /* -------------------------------------------------------------------------
  * Boolean setting object — OD 0x118.
  * ------------------------------------------------------------------------- */
-extern void od_publish_val(uint16_t od, void *buf, int len, uint32_t v, void *r); /* 0x6c614 */
+extern void *od_publish_val(uint16_t od, void *buf, int len, uint32_t v, void *r); /* 0x6c614 (returns event) */
 extern void setting_apply (void *a, void *b, int n);   /* 0x574c8 (commit + notify) */
 extern void od_0x118_side_effect(void);                /* 0x267d8 */
 extern uint8_t *g_od_0x118_val;    /* _DAT_00026b24 (reported value) */
@@ -265,9 +271,10 @@ extern void    *g_od_0x118_ctx;    /* _DAT_00026e38                  */
 void od_get_flag_0x118(void *r)
 {
     uint8_t buf[4];
+    void *ev;
     buf[0] = *g_od_0x118_val;
-    od_publish_val(0x118, buf, 1, *g_od_0x118_val, r);
-    aem_event_submit();
+    ev = od_publish_val(0x118, buf, 1, *g_od_0x118_val, r);
+    aem_event_submit(ev);
 }
 
 /* od_set_flag_0x118 -- 0x26e10 : latch req[5]!=0, commit, then re-publish. */
@@ -308,4 +315,101 @@ int32_t od_set_mode_0x144(const uint8_t *req)
         setting_apply(g_od_0x144_ctx, g_od_0x144_setting, 1);
     }
     return od_get_mode_0x144();
+}
+
+/* -------------------------------------------------------------------------
+ * od_get_0x1ca  --  0x6c63e   (OD 0x1ca read)
+ *   Publish a constant 1-byte 0 on OD 0x1ca.
+ * ------------------------------------------------------------------------- */
+void od_get_0x1ca(void *r)
+{
+    uint8_t buf[4] = {0};
+    void *ev = od_publish_val(0x1ca, buf, 1, 0, r);
+    aem_event_submit(ev);
+}
+
+/* -------------------------------------------------------------------------
+ * od_set_elock_evt_0x10a  --  0x6c6ae   (OD 0x10a write)
+ *
+ * Publish an elock event (chan 5 / id 0x100): payload = 4 when req[5] is set,
+ * else 0.  No-op (returns the differ code) if the elock state is already in flux.
+ * ------------------------------------------------------------------------- */
+int32_t od_set_elock_evt_0x10a(const uint8_t *req)
+{
+    int diff = elock_state_differs();
+    if (diff != 0)
+        return diff;
+
+    uint8_t *ev = aem_event_alloc(1, 0x100, 5);
+    if (ev == NULL)
+        return -0x16;
+    ev[5] = req[5] ? 4 : 0;
+    return od_publish_record(ev);
+}
+
+/* -------------------------------------------------------------------------
+ * Power / shipping commands.
+ * ------------------------------------------------------------------------- */
+extern void vm_logf(void *mod, uint32_t level, const char *fmt, ...);   /* 0x6efea */
+extern void actuator_power_domain_enable(int domain);   /* (named) */
+extern void ps_set_flag_publish_1b(int on);             /* (named) */
+extern void ps_prepare(int a);                          /* 0x319f8 */
+extern int  power_precheck(void);                       /* 0x272cc (0 = ok) */
+extern void ps_mode_set(int m);                         /* 0x2d378 */
+extern void ps_set_state(const char *name, int a, int b); /* 0x3120c */
+extern void work_schedule_timer(void *work, void *arg, int lo, int hi); /* 0x6373c */
+extern void *g_ps_work;             /* DAT_00063798 */
+extern void *g_ps_wake_arg;         /* _DAT_000276c4 */
+extern void *g_ps_shipping_arg;     /* _DAT_0002b5dc */
+extern void *g_clip_power_on;       /* _DAT_000276c0 */
+extern uint8_t g_log_shipping[];    /* _DAT_0002b5cc */
+
+/* -------------------------------------------------------------------------
+ * od_cmd_power_on_0x10e  --  0x6c6a4   (OD 0x10e write)
+ *
+ * Power-on / wake: prep the power state; bit0 of req[5] plays the power-on clip,
+ * bit1 brings up actuator power domain 3 (if the pre-check passes), sets the
+ * publish-1b flag + mode, and schedules the wake work.
+ * ------------------------------------------------------------------------- */
+void od_cmd_power_on_0x10e(const uint8_t *req)
+{
+    ps_prepare(5);
+
+    if (req[5] & 1)
+        audio_play(g_clip_power_on, 0xf, 1);
+
+    if (req[5] & 2) {
+        if (power_precheck() == 0) {
+            actuator_power_domain_enable(3);
+            ps_set_flag_publish_1b(1);
+        }
+        ps_mode_set(1);
+        work_schedule_timer(g_ps_work, g_ps_wake_arg, 0x20000, 0);
+    }
+}
+
+/* -------------------------------------------------------------------------
+ * od_cmd_shipping_mode  --  0x6cc32   (OD 0x202 write)
+ *
+ * Shipping mode: cut power after req[5] seconds (min 5).  Brings up power
+ * domain 4, plays /audio/3_sleep.wav, sets the "sleep" state, and arms a timer
+ * for (secs * 32768) ticks (32.768 kHz) after which the power is cut.
+ * ------------------------------------------------------------------------- */
+void od_cmd_shipping_mode(const uint8_t *req)
+{
+    unsigned secs = req[5];
+    if (secs < 5)
+        secs = 5;
+
+    if ((g_log_shipping[0] & 7) > 2)
+        vm_logf(g_log_shipping, 3, "Shipping mode requested - cut power in %u s", secs);
+
+    actuator_power_domain_enable(4);
+    audio_play("/audio/3_sleep.wav", 0xe, 1);
+    ps_set_state("sleep", 1, 1);
+
+    /* secs seconds expressed in 32.768 kHz ticks (round up) */
+    uint64_t ticks = ((uint64_t)(secs * 1000u) * 0x8000u + 999u) / 1000u;
+    work_schedule_timer(g_ps_work, g_ps_shipping_arg,
+                        (int)ticks, (int)(ticks >> 32));
 }

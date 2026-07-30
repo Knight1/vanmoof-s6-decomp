@@ -484,11 +484,10 @@ int32_t batt_pack_state_update(void *ctx, uint32_t r1, const uint8_t *hdr,
                 dtc_set(od | new_status);
             }
 
-            /* health nibble (4 bits) + 48-bit fault map diffs.
-             * (The OEM health-delta call passes only r0-r2; the class/base come
-             * from residual registers — reconstructed as this pack's class.) */
-            batt_publish_bit_deltas(&old_health, &new_health, 4, id, 0);
-            batt_publish_bit_deltas(PACK_FAULTS(pack), in + 2, 0x30, id, 0);
+            /* health nibble (4 bits, OD base 0x10) + 48-bit fault map (base 0x14),
+             * both under this pack's class -> od = (base + bit) | (class << 8). */
+            batt_publish_bit_deltas(&old_health, &new_health, 4, id, 0x10);
+            batt_publish_bit_deltas(PACK_FAULTS(pack), in + 2, 0x30, id, 0x14);
 
             /* store the new state/status + first 8 record bytes */
             *(uint32_t *)PACK_STATE(pack)       = *(const uint32_t *)in;
@@ -504,9 +503,10 @@ int32_t batt_pack_state_update(void *ctx, uint32_t r1, const uint8_t *hdr,
             sample = batt_pack_measure(pack);
             if (sample == 0) {
                 if ((int)(g_log_batt_state[0] << 0x1d) < 0) {
-                    struct { uint32_t a, b, c; uint32_t obj; uint16_t code; } e;
+                    struct { uint32_t a, b, c; uint32_t obj; uint32_t id; uint16_t code; } e;
                     e.a = g_evt_ver_a; e.b = g_evt_ver_b; e.c = g_evt_ver_c;
                     e.obj  = *(uint32_t *)(meta + 4);
+                    e.id   = META_ID(meta);
                     e.code = 0x301;
                     aem_log_v(g_log_batt_state, 0x2d00, &e, 0);
                 }

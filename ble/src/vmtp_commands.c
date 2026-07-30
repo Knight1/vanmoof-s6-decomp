@@ -8,7 +8,7 @@
  * of these handlers. This cluster covers:
  *
  *   firmware staging      cmd "firmware" / OD 0x1?? -> vmtp_cmd_firmware   @0x2ff30
- *   firmware permission   gate                       -> vmtp_cmd_permission_check @0x2ff14
+ *   firmware update-staged check (fs stat, NOT auth) -> fw_update_in_progress @0x2ff14
  *   firmware/fs version   OD 0x1b1 (read)            -> vmtp_cmd_version    @0x2f550
  *   e-lock lock/unlock    OD 0x163 (write)           -> vmtp_cmd_elock      @0x284b8
  *   FMNA/find-my trigger  OD 0x16b (write)           -> vmtp_cmd_fmna_event @0x28574
@@ -88,7 +88,8 @@ extern void  FUN_0006c7f6(int engage);
 extern int   elock_is_present(void);
 /* Permission/auth check: verify caller may stage firmware.     0x3cfc8
  * (key, scratch[268]) -> 0 if permitted.                               */
-extern int   FUN_0003cfc8(uint32_t key, void *scratch);
+/* fs_path_exists: fs_stat(path, scratch); 0 if the path exists.        0x3cfc8 */
+extern int   fs_path_exists(const char *path, void *scratch);
 
 /* Trigger a CPU reset / reboot-into-bootloader request path.   0x632e4 */
 extern void  FUN_000632e4(void *obj);
@@ -112,8 +113,8 @@ static const char DIAG_FMT_S[]        = "%s";              /* 0x90dac */
 /* firmware.pak header magic (MCUboot image magic, little-endian 0x96f3b83d). */
 #define FW_PAK_MAGIC  0x96f3b83du
 
-/* Permission-check key (FUN_0003cfc8 argument), OEM DAT_0002ff2c.            */
-#define FW_PERM_KEY   0  /* concrete key value lives at 0x2ff2c (data) */
+/* Firmware .pak path that fw_update_in_progress stats, OEM DAT_0002ff2c.      */
+extern const char *FW_PAK_PATH_CHECK;   /* 0x2ff2c -> "/fs/firmware.pak" */
 
 /* Logger context handle, OEM DAT_0002ffc8.                                   */
 extern void *g_vmtp_logger;        /* DAT_0002ffc8 */
@@ -148,14 +149,18 @@ extern void     *g_diag_post_obj;  /* DAT_0002f6b0 */
 extern const char *g_diag_src;     /* DAT_0002f6d0 -> "/fs/firmware.pak" tail */
 
 /* ============================================================================
- *  vmtp_cmd_permission_check @ 0x2ff14
- *  Permission gate for firmware staging. Runs the auth/permission verifier with
- *  a 268-byte scratch on the stack; returns true (1) iff the caller is allowed.
+ *  fw_update_in_progress @ 0x2ff14
+ *  NOT a permission/auth gate — it is a filesystem stat: returns true (1) iff
+ *  the firmware .pak path already exists (an update is already staged), using a
+ *  268-byte fs_stat scratch on the stack. (fs_path_exists 0x3cfc8 emits
+ *  "invalid file or dir name" / "mount point not found" / "failed get file or
+ *  dir stat".) There is NO cert-role/ACL check anywhere in the ble command path;
+ *  authorization by role is cloud-side (AWS-IoT policy via the modem).
  * ==========================================================================*/
-int vmtp_cmd_permission_check(void)
+int fw_update_in_progress(void)
 {
     uint8_t scratch[268];
-    return FUN_0003cfc8(FW_PERM_KEY, scratch) == 0;
+    return fs_path_exists(FW_PAK_PATH_CHECK, scratch) == 0;
 }
 
 /* ============================================================================
@@ -187,8 +192,8 @@ void vmtp_cmd_firmware(uint8_t *frame)
 
     switch (frame[5]) {
     case 1: /* begin */
-        if (vmtp_cmd_permission_check()) {
-            /* not permitted in current state -> reject with diagnostic */
+        if (fw_update_in_progress()) {
+            /* a .pak is already staged -> reject with "update in progress" */
             if ((*(uint32_t *)g_vmtp_logger & 7) != 0)
                 FUN_0006efd8(g_vmtp_logger, 1, MSG_UPDATE_BUSY);
             return;

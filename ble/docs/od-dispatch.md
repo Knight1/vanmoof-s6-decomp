@@ -31,9 +31,9 @@ reconstructed to C (file noted); "pending" = named/recovered only.
 | 0x030/31/32 | 0x2d56c | 0x6ce18 | `od_get_identity` / `od_set_identity` (ecu/frame/bike id) | **done** (`od_dispatch.c`) |
 | 0x100 | 0x27144 | 0x6c6de | `od_cmd_notify_u8` / `od_cmd_elock_set` | **done** (`od_dispatch.c`) |
 | 0x101 | 0x2bf34 | 0x2bf34 | `batt_telemetry_dispatch` | done (`batt_telemetry.c`) |
-| 0x10a | — | 0x6c6ae | | pending |
+| 0x10a | — | 0x6c6ae | `od_set_elock_evt_0x10a` (elock event pub) | **done** (`od_dispatch.c`) |
 | 0x10c | — | 0x27424 | | pending |
-| 0x10e | — | 0x6c6a4 | | pending |
+| 0x10e | — | 0x6c6a4 | `od_cmd_power_on_0x10e` (wake/power-on) | **done** (`od_dispatch.c`) |
 | 0x112-0x115 | 0x6d530 | — | `od_cmd_config_read` (shared) | **done** (`od_dispatch.c`) |
 | 0x113 | 0x6d530 | 0x31fb8 | + set | set pending |
 | 0x118 | 0x26b04 | 0x26e10 | `od_get_flag_0x118` / `od_set_flag_0x118` (bool + commit) | **done** (`od_dispatch.c`) |
@@ -49,10 +49,10 @@ reconstructed to C (file noted); "pending" = named/recovered only.
 | 0x1b0 | — | 0x2ff30 | `vmtp_cmd_firmware` | done (`vmtp_commands.c`) |
 | 0x1b1 | 0x2f550 | — | `vmtp_cmd_version` | done (`vmtp_commands.c`) |
 | 0x1b2 | 0x2f120 | 0x2f6b4 | `vmtp_cmd_diag_report/log` | done (`vmtp_commands.c`) |
-| 0x1ca | 0x6c63e | — | | pending |
-| 0x200 | 0x6c898 | — | | pending |
-| 0x202 | — | 0x6cc32 | | pending |
-| 0x230 | 0x6c9cc | — | | pending |
+| 0x1ca | 0x6c63e | — | `od_get_0x1ca` (const getter) | **done** (`od_dispatch.c`) |
+| 0x200 | 0x6c898 | — | `ps_power_state_publish` (thunk) | done (power_state) |
+| 0x202 | — | 0x6cc32 | `od_cmd_shipping_mode` (cut power) | **done** (`od_dispatch.c`) |
+| 0x230 | 0x6c9cc | — | `ps_publish_empty_evt_a` (thunk) | done (power_state) |
 | 0x279 | 0x33744 | — | | pending |
 | 0x280 | 0x338b0 | — | | pending |
 | 0x001/002 | — | 0x7761a/0x775fe | (vendor) | vendor |
