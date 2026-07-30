@@ -209,7 +209,7 @@ void setting_message_dispatch(void *req)
             len = rec[0] - (int)(intptr_t)buf;
             evt = evt_alloc(len, code, 5, 0);
             if (evt != NULL) {
-                evt_fill((int *)evt + 1, buf, len);
+                evt_fill((uint8_t *)evt + 5, buf, len);
 
                 if ((*g_settings_log & 4) != 0)
                     log_msg(g_settings_log, 0x2100, "%s: Setting message on topic %u",
@@ -241,20 +241,27 @@ release:
  * resolving each entry's compact topic-code back to its key string via
  * setting_id_by_code -> setting_key_by_id.
  * ------------------------------------------------------------------------- */
+/* Iterator cursor (memset 0, 0x28); OEM byte offsets. */
 struct sub_cursor {
-    uint8_t   pad[4];
-    void    (*next)(void *);
-    uint16_t  code;
-    uint8_t   _r[6];
-    char      priority;    /* 2 == high, else low */
-    uint32_t  rate_ms;
-    uint32_t  index;
-    uint32_t  count;
+    uint8_t   pad0[4];        /* 0x00 */
+    void    (*next)(void *);  /* 0x04 */
+    uint8_t   pad1[8];        /* 0x08 */
+    uint16_t  code;           /* 0x10 */
+    uint8_t   pad2[6];        /* 0x12 */
+    char      priority;       /* 0x18 (2 == high, else low) */
+    uint8_t   pad3[3];        /* 0x19 */
+    uint32_t  rate_ms;        /* 0x1c */
+    uint32_t  count;          /* 0x20 */
+    uint32_t  index;          /* 0x24 */
 };
+
+extern void **g_subs_container;   /* DAT_00025b9c (subscription container) */
 
 int cmd_subscriptions(void *sh)
 {
-    if (/* subscription container empty */ 0) {
+    /* empty when container[2] (offset +8 of the inner list @ +8) is 0 */
+    int *list = (int *)g_subs_container[2];
+    if (list[2] == 0) {
         sh_print(sh, "No subscriptions found");
         return 0;
     }
@@ -262,7 +269,7 @@ int cmd_subscriptions(void *sh)
     struct sub_cursor cur = {0};
     sh_print(sh, "Topic         Priority  Rate Limit ms");
     sh_print(sh, "----------------------------------");
-    subs_first(g_settings_ctx, &cur);
+    subs_first(g_subs_container, &cur);
 
     while (cur.index < cur.count) {
         cur.next(&cur);
