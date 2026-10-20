@@ -8,7 +8,7 @@
  * Recovered from an app-in-a-gap (the handler is reached only through the work
  * item registered by net_monitor_init, so the analyzer never disassembled it):
  *   net_monitor_init    @ 0x247fc  (0x1958-B context bring-up + work/cb register)
- *   net_monitor_publish @ 0x2487c  (AT%XMONITOR query -> parse -> publish 0x1104)
+ *   net_monitor_publish @ 0x24884  (AT%XMONITOR query -> parse -> publish 0x1104)
  *
  * The AT interface + Zephyr work/k_poll are vendor. Behaviour-oriented
  * reconstruction from Ghidra (image base 0x10000, Cortex-M33); not byte-identical.
@@ -34,14 +34,14 @@ extern void  evt_send   (void);                                                /
  *   +0x06 u32  MNC  (last 3 PLMN digits)
  *   +0x14 u16  name checksum (0 until captured -> also the "have data" flag)
  *   +0x16 65 B operator name string (from "%64[^\"]")                          */
-extern uint8_t *g_net_ctx;   /* 0x2001ac30 */
+extern uint8_t *g_net_ctx;   /* 0x2001ac31 */
 
 /* AT%XMONITOR command + its scanf format (rodata). */
 extern const char S_AT_XMONITOR[];   /* 0x5fcb7 "AT%XMONITOR" */
 extern const char S_XMONITOR_FMT[];  /* 0x5fc8c "%%XMONITOR: %*u,\"%64[^\"]\",...,\"%6[^\"]\"," */
 
 /* -------------------------------------------------------------------------
- * net_monitor_publish  --  0x2487c
+ * net_monitor_publish  --  0x24884
  *
  * If the network name has not been captured yet (ctx+0x14 == 0), query
  * AT%XMONITOR and parse it: store the operator-name checksum, and (when more
@@ -51,22 +51,35 @@ extern const char S_XMONITOR_FMT[];  /* 0x5fc8c "%%XMONITOR: %*u,\"%64[^\"]\",..
 void net_monitor_publish(void)
 {
     uint8_t *ctx = g_net_ctx;
-    uint32_t plmn = 0;      /* "%6[^\"]" capture -> 6 ASCII digits */
+    char     plmn[8] = {0};   /* "%6[^\"]" -> 6 ASCII digits + NUL (OEM zeroes 7 B) */
     int      matched;
 
     if (*(uint16_t *)(ctx + 0x14) == 0) {
-        matched = at_scanf(S_AT_XMONITOR, S_XMONITOR_FMT, ctx + 0x16, &plmn);
+        matched = at_scanf(S_AT_XMONITOR, S_XMONITOR_FMT, ctx + 0x16, plmn);
         if (matched > 0) {
             *(uint16_t *)(ctx + 0x14) = buf_checksum(ctx + 0x16, 0x41);
             if (matched != 1) {
-                /* PLMN string split: high 3 digits = MCC, low 3 = MNC */
-                *(uint32_t *)(ctx + 6) = parse_uint((uint8_t *)&plmn + 3, 0, 10);
-                plmn &= 0xffffff;
-                *(uint32_t *)(ctx + 2) = parse_uint(&plmn, 0, 10);
+                /* PLMN digits split: first 3 = MCC (ctx+2), last 3 = MNC (ctx+6) */
+                *(uint32_t *)(ctx + 6) = parse_uint(plmn + 3, 0, 10);
+                plmn[3] = 0;   /* truncate to the first 3 digits */
+                *(uint32_t *)(ctx + 2) = parse_uint(plmn, 0, 10);
             }
         }
     }
 
     evt_publish(0x1104, ctx, 0x57);
+    evt_send();
+}
+
+/* -------------------------------------------------------------------------
+ * net_monitor_get_responder  --  0x248fc
+ *
+ * On-demand publisher: re-emit the *cached* network-status record (event 0x1104,
+ * 0x57 B) from the same context, WITHOUT re-running AT%XMONITOR. This is the OD
+ * get-handler; net_monitor_publish is the refresh-then-publish work handler.
+ * ------------------------------------------------------------------------- */
+void net_monitor_get_responder(void)
+{
+    evt_publish(0x1104, g_net_ctx, 0x57);
     evt_send();
 }
