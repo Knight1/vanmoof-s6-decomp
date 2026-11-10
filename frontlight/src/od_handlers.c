@@ -7,17 +7,17 @@
  * by reading a stored record from the persistent-storage device and emitting it
  * as a CAN/OD response via can_frame_encode.
  *
- *   can_report_publish     @ 0x0900   reply 13 B from a 0x30-B stored record
- *   od_read_blob_responder @ 0x096c   reply 0x10 B from a 0x40-B stored record
+ *   can_report_publish     @ 0x1500   reply 13 B from a 0x30-B stored record
+ *   od_read_blob_responder @ 0x156c   reply 0x10 B from a 0x40-B stored record
  *
  * NOTE: the OD registration table (which OD address maps to which handler) is
- * RAM-resident (g_od_regs @ 0x4678, past the 0x3c70 flash image), populated by an
- * init routine at startup, so the address<->handler wiring is not statically
- * readable from the image. These handlers are the leaf responders.
+ * in flash at g_od_regs @ 0x4678 (24-B records {od_id, mode, len, 0x64, flag,
+ * handler|1}); it only looked RAM-resident under the old base-0x0 import. These
+ * handlers are the leaf responders; see docs/progress.md for the full map.
  *
  * The persistent-storage device + its HAL are vendor/framework. Behaviour-
- * oriented reconstruction from the struct-typed Ghidra decompile (image base 0x0,
- * raw LPC). Not byte-identical.
+ * oriented reconstruction from the struct-typed Ghidra decompile (image base 0xC00,
+ * raw LPC; link addresses). Not byte-identical.
  */
 
 #include <stdint.h>
@@ -28,22 +28,22 @@ struct od_slot;
 struct od_reg;
 
 /* ---- vm CAN/OD TX (can_od.c) --------------------------------------------- */
-extern void can_frame_encode(struct od_slot *slots, struct od_reg *reg,
-                             uint8_t *addr, int base, unsigned total);   /* 0x33fc */
+extern int can_frame_encode(struct od_slot *slots, struct od_reg *reg,
+                             uint8_t *addr, int base, unsigned total);   /* 0x3ffc */
 
 /* ---- persistent-storage device + HAL (vendor) ---------------------------- */
 /* Lazily bring the storage device up (probe + init on first use); 0 = ready,
  * -5 on failure. */
-extern int  storage_ensure_ready(void);                                 /* 0x08d0 */
+extern int  storage_ensure_ready(void);                                 /* 0x14d0 */
 /* Read from the storage device (dev, dst, a, b); 0 on success. Arg semantics are
  * the device-API's (len/offset), kept in OEM order. */
-extern int  storage_read(void *dev, void *dst, int a, int b);           /* 0x05f0 */
+extern int  storage_read(void *dev, void *dst, int a, int b);           /* 0x11f0 */
 
-extern void *g_store_report;   /* DAT_00000968 (record for the 13-B report)   */
-extern void *g_store_blob;     /* DAT_000009ac (record for the 0x10-B blob)   */
+extern void *g_store_report;   /* DAT_00001568 (record for the 13-B report)   */
+extern void *g_store_blob;     /* DAT_000015ac (record for the 0x10-B blob)   */
 
 /* -------------------------------------------------------------------------
- * can_report_publish  --  0x0900
+ * can_report_publish  --  0x1500
  *
  * OD read-responder: ensure storage is ready, read a 0x30-byte record; if its
  * leading status byte == 1 (record valid), transmit the 13 payload bytes that
@@ -67,7 +67,7 @@ void can_report_publish(struct od_slot *slots, struct od_reg *reg, uint8_t *addr
 }
 
 /* -------------------------------------------------------------------------
- * od_read_blob_responder  --  0x096c
+ * od_read_blob_responder  --  0x156c
  *
  * OD read-responder: ensure storage is ready, read a 0x40-byte record, and
  * transmit its first 0x10 bytes as the OD response.
