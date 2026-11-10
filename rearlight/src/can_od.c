@@ -3,12 +3,12 @@
  *
  * SHARED LPC-trio core: this file is byte-for-byte the same reconstruction as
  * frontlight/src/can_od.c. Verified by cross-program diff of can_od_rx_dispatch
- * (frontlight 0x11e0 vs rearlight 0x1050 = functionally identical; the only diffs
+ * (frontlight 0x1de0 vs rearlight 0x1c50 = functionally identical; the only diffs
  * are compiler addressing-mode choices) and byte-identical prologues for the rest.
  * The rearlight OEM addresses differ from the inline (frontlight) comments below:
- *     can_od_rx_dispatch  0x1050   (frontlight 0x11e0)
- *     can_isr             0x1670   (frontlight 0x176c)
- *     can_frame_encode    0x2fa0   (frontlight 0x33fc)
+ *     can_od_rx_dispatch  0x1c50   (frontlight 0x1de0)
+ *     can_isr             0x2270   (frontlight 0x236c)
+ *     can_frame_encode    0x3ba0   (frontlight 0x3ffc)
  * The `vm` protocol, structs, and behaviour are identical; see the frontlight
  * copy for the full commentary. Sonnet-verified there (0 findings on can_isr /
  * can_frame_encode; 4 HIGH+1 MED fixed on can_od_rx_dispatch's od_slot layout).
@@ -19,14 +19,14 @@
  * payloads into a per-object slot, and invokes the object's handler when the
  * message is complete. Same wire protocol as ble/modem (see docs/progress.md).
  *
- *   can_od_rx_dispatch  @ 0x11e0   (event 0x1848 = bus error, 0x183d = RX)
+ *   can_od_rx_dispatch  @ 0x1de0   (event 0x1848 = bus error, 0x183d = RX)
  *
  * 29-bit ID -> OD address bit-layout:
  *   id[28:21] = addrA (node/class)   id[20:13] = addrB (object)
  *   id[12: 5] = addrC (subindex)     id[ 4: 0] = frame seq / flags
  *
  * Behaviour-oriented reconstruction from the struct-typed Ghidra decompile
- * (image base 0x0, raw LPC). Not byte-identical. The M_CAN driver, memcpy/memset
+ * (image base 0xC00, raw LPC; addresses are link addresses). Not byte-identical. The M_CAN driver, memcpy/memset
  * and can_frame_encode are externs.
  *
  * NOTE (to verify): the reassembly-slot callback fields (cb / cb_arg) sit at the
@@ -86,24 +86,24 @@ struct od_slot {
 #define SLOT_CB_ARG(sp) (*(uint32_t *)((uint8_t *)(sp) + 0x60))
 
 /* ---- externs ------------------------------------------------------------- */
-extern void vm_memcpy(void *dst, const void *src, unsigned n);       /* 0x3822 */
-extern void vm_memset(void *dst, int v, unsigned n);                 /* 0x383c */
-void can_frame_encode(struct od_slot *slots, struct od_reg *reg,
-                      uint8_t *addr, int base, unsigned total);      /* 0x33fc */
+extern void vm_memcpy(void *dst, const void *src, unsigned n);       /* 0x4422 */
+extern void vm_memset(void *dst, int v, unsigned n);                 /* 0x443c */
+int can_frame_encode(struct od_slot *slots, struct od_reg *reg,
+                      uint8_t *addr, int base, unsigned total);      /* 0x3ffc */
 
-/* M_CAN RX element (DAT_0000149c): [0]=R0 (XTD/RTR/29-bit ID), byte6=DLC nibble,
+/* M_CAN RX element (DAT_0000209c): [0]=R0 (XTD/RTR/29-bit ID), byte6=DLC nibble,
  * [2]=pointer to the payload bytes. */
-extern uint32_t *g_can_rx;        /* DAT_0000149c */
-extern uint8_t   g_bus_err;       /* DAT_000014ac + 1 (error-latch byte)        */
-extern struct od_reg *g_od_regs;      /* DAT_000014a0 (list start)              */
-extern struct od_reg *g_od_regs_end;  /* DAT_000014a4 (list end)                */
-extern uint32_t *g_now;           /* DAT_000014a8 (tick source)                 */
+extern uint32_t *g_can_rx;        /* DAT_0000209c */
+extern uint8_t   g_bus_err;       /* DAT_000020ac + 1 (error-latch byte)        */
+extern struct od_reg *g_od_regs;      /* DAT_000020a0 (list start)              */
+extern struct od_reg *g_od_regs_end;  /* DAT_000020a4 (list end)                */
+extern uint32_t *g_now;           /* DAT_000020a8 (tick source)                 */
 
 #define NUM_SLOTS   10
 #define SLOT_BUFCAP 0x40
 
 /* -------------------------------------------------------------------------
- * can_od_rx_dispatch  --  0x11e0
+ * can_od_rx_dispatch  --  0x1de0
  * ------------------------------------------------------------------------- */
 void can_od_rx_dispatch(int can_regs, int rx_ctx, int event, int flags,
                         struct od_slot *slots)
@@ -277,7 +277,7 @@ rearm:
 }
 
 /* -------------------------------------------------------------------------
- * can_isr  --  0x176c
+ * can_isr  --  0x236c
  *
  * Bosch M_CAN controller ISR. Drains the interrupt register, and for each
  * pending source: handles it against the M_CAN registers (RX FIFO read into the
@@ -368,7 +368,7 @@ void can_isr(int can_regs, uint32_t *ctx, int arg)
             ack   = 0x80;
         } else {
             event = 0x1849;
-            ack   = 0xfc7ffd66u & ir;           /* DAT_00001910 */
+            ack   = 0xfc7ffd66u & ir;           /* DAT_00002510 */
         }
 
         {
@@ -387,7 +387,7 @@ void can_isr(int can_regs, uint32_t *ctx, int arg)
 #undef R
 
 /* -------------------------------------------------------------------------
- * can_frame_encode  --  0x33fc
+ * can_frame_encode  --  0x3ffc
  *
  * TX side of the vm CAN/OD protocol: encode an OD object's payload into one or
  * more 29-bit-ID CAN frames and hand each to the low-level sender (slots->send).
@@ -406,9 +406,12 @@ void can_isr(int can_regs, uint32_t *ctx, int arg)
  * total<9 : one frame carries the whole payload.
  * total>=9: multi-frame burst of <=8-byte chunks; seq increments and wraps
  *           (mask 0xf for mode 2, else 0x7); aborts if send returns nonzero.
+ * Returns the send() result (0 = all frames queued). Corrected 2026-11-10: this
+ * was reconstructed as void, but the OEM returns send's r0 (tail call / last
+ * call) and its callers (OD responders, the main-loop retry) test it.
  * ------------------------------------------------------------------------- */
-void can_frame_encode(struct od_slot *slots, struct od_reg *reg,
-                      uint8_t *addr, int base, unsigned total)
+int can_frame_encode(struct od_slot *slots, struct od_reg *reg,
+                     uint8_t *addr, int base, unsigned total)
 {
     unsigned last_flag = (reg->mode == 2) ? 0u : (unsigned)(reg->flag3 == 0);
     uint8_t  a, b, c;
@@ -423,31 +426,33 @@ void can_frame_encode(struct od_slot *slots, struct od_reg *reg,
 
     if (total < 9) {
         LOAD_ADDR();
-        slots->send(slots,
-                    addrC << 5 | last_flag << 4 | (unsigned)b << 0x0d | (unsigned)a << 0x15,
-                    base, total);
-        return;
+        return slots->send(slots,                /* OEM: tail call (bx ip) */
+                           addrC << 5 | last_flag << 4 | (unsigned)b << 0x0d | (unsigned)a << 0x15,
+                           base, total);
     }
 
     {
         unsigned off = 0;
         unsigned acc = 0;         /* running seq accumulator (uVar8)          */
+        int      rc;
         do {
             unsigned lowbits = acc | last_flag << 4;   /* seq | last_flag@bit4 */
             unsigned chunk = total - off;
             if (chunk > 7)
                 chunk = 8;
             LOAD_ADDR();
-            if (slots->send(slots,
-                            lowbits | (unsigned)b << 0x0d | (unsigned)a << 0x15 | addrC << 5,
-                            base + off, chunk) != 0)
-                return;
+            rc = slots->send(slots,
+                             lowbits | (unsigned)b << 0x0d | (unsigned)a << 0x15 | addrC << 5,
+                             base + off, chunk);
+            if (rc != 0)
+                return rc;
             off += chunk;
             lowbits += 1;
             /* mode 2 wraps seq mod 16; else keep acc's high bits, seq mod 8 */
             acc = (reg->mode == 2) ? (lowbits & 0xf)
                                    : ((acc & 0xe8) | (lowbits & 7));
         } while (off < total);
+        return rc;                /* 0: last send succeeded */
     }
     #undef LOAD_ADDR
 }

@@ -1,23 +1,24 @@
 /*
  * od_handlers.c  --  VanMoof S6 "rearlight" ECU (NXP LPC55xx-class Cortex-M, VMFW)
  *
- * Rear-light OD object read-responders: registered as the `handler` for specific
- * vm CAN/OD objects, each reads light state / config / a stored record and replies
- * with a CAN/OD response via can_frame_encode (can_od.c). This is the rearlight-
- * specific app layer (frontlight has its own, different set); the shared vm CAN/OD
- * + LED core is reused verbatim (can_od.c, led.c).
+ * SHARED LPC-trio framework read-responders (same OD ids in frontlight and
+ * motor_sensor): provisioning record / blob read-back, firmware version reports,
+ * and the staged-image geometry + CRC used by the over-CAN updater (writes and
+ * OTA begin/write/commit are in frontlight/src/od_framework.c). Each replies via
+ * can_frame_encode (can_od.c). The names were corrected 2026-11-09: these were
+ * first read as light-state responders; their helpers are the VMFW image API.
  *
- *   od_read_blob_responder @ 0x07f0  read 0x40-B stored record -> reply 0x10 B
- *   od_report_13           @ 0x3102  getter -> reply 13 B
- *   od_report_status       @ 0x321a  light state -> {0x56, bswap16(v), ...} reply 7 B
- *   od_report_state        @ 0x0dd4  light state -> {mode, value, ...} reply 0x10 B
- *   od_report_config       @ 0x326a  config -> {v, sum/v} reply 4 B
- *   od_report_scaled       @ 0x32e4  config + scale (0xffff = passthrough) reply 4 B
+ *   od_read_blob_responder @ 0x13f0  read 0x40-B stored record -> reply 0x10 B
+ *   od_report_13           @ 0x3d02  getter -> reply 13 B
+ *   od_report_version_record @ 0x3e1a  OD 01008000: {0x56, bswap16(fw ver lo), 8,1,8,0} 7 B
+ *   od_report_fw_version     @ 0x19d4  OD 01009500: {fw ver, build, tag, 0x136e} 0x10 B
+ *   od_report_slot_geometry  @ 0x3e6a  OD 01008100: staged slot {u16 page, u16 pages} 4 B
+ *   od_report_image_crc      @ 0x3ee4  OD 01008400: CRC32 of slot page N (0xffff = all) 4 B
  *
- * The OD registration (which OD address -> which handler) is RAM-resident (past
- * the flash image), so the address<->handler map is not statically readable; these
- * are the leaf responders. Storage/state accessors are vendor/framework externs.
- * Behaviour-oriented reconstruction from the Ghidra decompile (image base 0x0).
+ * The OD registration (which OD address -> which handler) is a flash table at
+ * 0x4218 (24-B records; see docs/progress.md for the decoded map); these are the
+ * leaf responders. Storage/state accessors are vendor/framework externs.
+ * Behaviour-oriented reconstruction from the Ghidra decompile (image base 0xC00; addresses are link addresses).
  */
 
 #include <stdint.h>
@@ -28,25 +29,26 @@ struct od_reg;
 
 /* ---- vm CAN/OD TX (can_od.c) --------------------------------------------- */
 extern int can_frame_encode(struct od_slot *slots, struct od_reg *reg,
-                            uint8_t *addr, int base, unsigned total);   /* 0x2fa0 */
+                            uint8_t *addr, int base, unsigned total);   /* 0x3ba0 */
 
-/* ---- storage + light-state accessors (vendor/framework) ------------------ */
-extern int  storage_ensure_ready(void);                                /* 0x0774 (0=ready) */
-extern int  storage_read(void *dev, void *dst, int a, int b);          /* 0x04a4 (0=ok)    */
-extern void *g_store_blob;    /* DAT_00000830 */
+/* ---- storage + VMFW image accessors (framework) -------------------------- */
+extern int  storage_ensure_ready(void);                                /* 0x1374 (0=ready) */
+extern int  storage_read(void *dev, void *dst, int a, int b);          /* 0x10a4 (0=ok)    */
+extern void *g_store_blob;    /* DAT_00001430 */
 
-/* light_state_get(sel, out): fetch a subsystem state block; 0 on success.
- * validated variant checks a magic tag. */
-extern int  light_state_get(int sel, void *out);                       /* 0x0d6c */
-extern int  light_state_get_validated(void *out);                      /* 0x0d9c */
-extern int  report13_get(void *out);                                   /* 0x07a4 */
-extern int  scaled_prepare(int scaled, int base, void *io);            /* 0x1564 */
-extern int  scaled_ready(void);                                        /* 0x1320 */
+/* sys_image_info(slot, out): out = {sector, page_size, size, base} of image
+ * slot `slot` (0 running, 2 staged); always 0. fw_trailer_get(out): *out =
+ * slot0 base+size-0x28, -22 unless it starts with "VMFW", -14 on info error. */
+extern int  sys_image_info(int slot, void *out);                       /* 0x196c */
+extern int  fw_trailer_get(void *out);                                 /* 0x199c */
+extern int  report13_get(void *out);                                   /* 0x13a4 */
+extern int  image_crc32(int off, int len, void *crc);                  /* 0x2164 */
+extern int  flash_cache_flush(void);                                   /* 0x1f20 */
 
-extern uint32_t g_state_tag;   /* DAT_00000e14 (constant packed into od_report_state) */
+extern uint32_t g_state_tag;   /* DAT_00001a14 (constant packed into od_report_fw_version) */
 
 /* -------------------------------------------------------------------------
- * od_read_blob_responder  --  0x07f0
+ * od_read_blob_responder  --  0x13f0
  *   Read a 0x40-B stored record, reply its first 0x10 bytes. (Same shape as the
  *   frontlight responder.)
  * ------------------------------------------------------------------------- */
@@ -62,7 +64,7 @@ int od_read_blob_responder(struct od_slot *slots, struct od_reg *reg, uint8_t *a
 }
 
 /* -------------------------------------------------------------------------
- * od_report_13  --  0x3102
+ * od_report_13  --  0x3d02
  *   Fetch a 13-byte report record and reply it.
  * ------------------------------------------------------------------------- */
 void od_report_13(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
@@ -73,13 +75,13 @@ void od_report_13(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 }
 
 /* -------------------------------------------------------------------------
- * od_report_status  --  0x321a
- *   Light state -> a 7-byte status record: {0x56, bswap16(state[+4]), 8,1,8,0}.
+ * od_report_version_record  --  0x3e1a
+ *   OD 01008000: 7-byte version record {0x56, bswap16(trailer ver lo16), 8,1,8,0}.
  * ------------------------------------------------------------------------- */
-int od_report_status(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
+int od_report_version_record(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 {
     int st;
-    if (light_state_get_validated(&st) != 0)
+    if (fw_trailer_get(&st) != 0)
         return -0x16;
     {
         uint16_t v = *(uint16_t *)(st + 4);
@@ -96,13 +98,14 @@ int od_report_status(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 }
 
 /* -------------------------------------------------------------------------
- * od_report_state  --  0x0dd4
- *   Light state -> a 0x10-B record: {state[+4], state[+0x10], g_state_tag, 0x136e}.
+ * od_report_fw_version  --  0x19d4
+ *   OD 01009500: firmware version {trailer ver @+4, build @+0x10, g_state_tag,
+ *   0x136e (= the VMFW build marker of this image)}.
  * ------------------------------------------------------------------------- */
-int od_report_state(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
+int od_report_fw_version(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 {
     int st;
-    if (light_state_get_validated(&st) != 0)
+    if (fw_trailer_get(&st) != 0)
         return -0x16;
     {
         uint32_t rec[4];
@@ -115,50 +118,50 @@ int od_report_state(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 }
 
 /* -------------------------------------------------------------------------
- * od_report_config  --  0x326a
- *   Config (light_state_get sel 2) -> {v:u16, (sum/v):u16} 4-B reply.
+ * od_report_slot_geometry  --  0x3e6a
+ *   OD 01008100: staged slot geometry {u16 page_size, u16 size/page_size}; the
+ *   host reads this before OTA begin ({first_page, count}).
  * ------------------------------------------------------------------------- */
-int od_report_config(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
+int od_report_slot_geometry(struct od_slot *slots, struct od_reg *reg, uint8_t *addr)
 {
-    struct { uint8_t raw[4]; uint32_t v, sum; } s;
-    if (light_state_get(2, s.raw) != 0)
+    struct { uint8_t raw[4]; uint32_t page_size, size; } s;
+    if (sys_image_info(2, s.raw) != 0)
         return -0xe;
     {
-        struct { uint16_t v; uint16_t avg; } rec;
-        rec.v   = (uint16_t)s.v;
-        rec.avg = (uint16_t)(s.sum / s.v);
+        struct { uint16_t page_size; uint16_t pages; } rec;
+        rec.page_size = (uint16_t)s.page_size;
+        rec.pages     = (uint16_t)(s.size / s.page_size);
         return can_frame_encode(slots, reg, addr, (int)(uintptr_t)&rec, 4);
     }
 }
 
 /* -------------------------------------------------------------------------
- * od_report_scaled  --  0x32e4
- *   Config + a scale factor from the request (addr word). 0xffff = passthrough
- *   of the base value; else multiply. Replies a computed 4-B value.
+ * od_report_image_crc  --  0x3ee4
+ *   OD 01008400: CRC32 of staged-slot page N (request u16 N), or of the whole
+ *   slot for N = 0xffff. Reply 4 B (table timeout 1000 for the slow CRC).
  * ------------------------------------------------------------------------- */
-int od_report_scaled(struct od_slot *slots, struct od_reg *reg, uint8_t *addr,
+int od_report_image_crc(struct od_slot *slots, struct od_reg *reg, uint8_t *addr,
                      uint8_t **req)
 {
-    uint16_t factor = *(uint16_t *)*req;
-    /* light_state_get(2, buf) fills 12 B: [0..4) unused here, base@+4, extra@+8
-     * (OEM auStack_28 / local_24 / iStack_20). */
+    uint16_t page = *(uint16_t *)*req;
+    /* sys_image_info(2, buf) = {sector, page_size@+4, size@+8, (base)} */
     uint8_t  buf[12];
     int      out = 0;
-    int      base, extra, computed, base_arg;
+    int      page_size, size, off, len;
 
-    if (scaled_ready() != 0 || light_state_get(2, buf) != 0)
+    if (flash_cache_flush() != 0 || sys_image_info(2, buf) != 0)
         return -0xe;
 
-    base  = *(int32_t *)(buf + 4);
-    extra = *(int32_t *)(buf + 8);
-    if (factor == 0xffff) {              /* passthrough: scale=0, use extra */
-        computed = 0;
-        base_arg = extra;
-    } else {
-        computed = base * (int)(unsigned)factor;
-        base_arg = base;
+    page_size = *(int32_t *)(buf + 4);
+    size      = *(int32_t *)(buf + 8);
+    if (page == 0xffff) {                /* whole slot */
+        off = 0;
+        len = size;
+    } else {                             /* one page   */
+        off = page_size * (int)(unsigned)page;
+        len = page_size;
     }
-    if (scaled_prepare(computed, base_arg, &out) != 0)
+    if (image_crc32(off, len, &out) != 0)
         return -0x16;
     return can_frame_encode(slots, reg, addr, (int)(uintptr_t)&out, 4);
 }
