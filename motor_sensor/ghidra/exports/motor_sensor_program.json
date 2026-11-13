@@ -1,0 +1,223 @@
+{
+ "target": "motor_sensor",
+ "program": "motor-sensor.bin",
+ "image_base": "0xC00",
+ "vector_table": "0xC00",
+ "mcu": "NXP LPC55xx-class Cortex-M (LPC trio)",
+ "framework": "VanMoof LPC-trio vm CAN/OD + M_CAN, VMFW",
+ "counts": {
+  "named": 42
+ },
+ "reconstructed_to_c": [
+  "motor_sensor/src/sensor.c",
+  "motor_sensor/src/od_framework.c",
+  "motor_sensor/src/can_od.c",
+  "motor_sensor/src/od_handlers.c",
+  "motor_sensor/src/main_loop.c"
+ ],
+ "functions": [
+  {
+   "addr": "0x00000d80",
+   "name": "reset_handler",
+   "role": "true reset entry (vector 1)"
+  },
+  {
+   "addr": "0x00000e78",
+   "name": "nmi_handler",
+   "role": "vector 2"
+  },
+  {
+   "addr": "0x00000eb0",
+   "name": "pendsv_handler",
+   "role": "vector 14"
+  },
+  {
+   "addr": "0x00000ec8",
+   "name": "systick_handler",
+   "role": "vector 15"
+  },
+  {
+   "addr": "0x00000f20",
+   "name": "temp_adc_isr",
+   "role": "ADC0 IRQ22: NTC sample -> deg C (index-40, 127 = out of range) -> g_temp_cb"
+  },
+  {
+   "addr": "0x00000f9c",
+   "name": "od_read_hw_id",
+   "role": "OD 01008900 read: reply u32 0x20240627"
+  },
+  {
+   "addr": "0x00001164",
+   "name": "storage_read"
+  },
+  {
+   "addr": "0x000014f4",
+   "name": "storage_ensure_ready"
+  },
+  {
+   "addr": "0x00001524",
+   "name": "report13_get"
+  },
+  {
+   "addr": "0x00001570",
+   "name": "od_read_blob_responder"
+  },
+  {
+   "addr": "0x000015b4",
+   "name": "config_production_lock",
+   "role": "BOOT_CFG|0x70 + SOCU words (likely CMPA lockdown)"
+  },
+  {
+   "addr": "0x00001620",
+   "name": "odometer_find_slot",
+   "role": "first non-blank page of 6-page ring @0xF400"
+  },
+  {
+   "addr": "0x00001678",
+   "name": "sw_timer_start_1s",
+   "role": "sw_timer_start(id,1000) constprop"
+  },
+  {
+   "addr": "0x000016b8",
+   "name": "od_send_if_active",
+   "role": "publish data on an OD record if mode==2"
+  },
+  {
+   "addr": "0x000016d8",
+   "name": "temp_report",
+   "role": "temperature cb: publish OD 010003a1 (1 B)"
+  },
+  {
+   "addr": "0x000016f4",
+   "name": "wheel_timeout_cb",
+   "role": "CTIMER0 timeout: reset, MR0=249999, disarm, publish speed {0,2500}"
+  },
+  {
+   "addr": "0x00001908",
+   "name": "flash_cache_flush",
+   "role": "flash page-cache write-back (ROM API)"
+  },
+  {
+   "addr": "0x00001974",
+   "name": "sys_image_info",
+   "role": "slot geometry {sector, page, size, base}"
+  },
+  {
+   "addr": "0x000019a4",
+   "name": "fw_trailer_get"
+  },
+  {
+   "addr": "0x000019dc",
+   "name": "od_report_fw_version"
+  },
+  {
+   "addr": "0x00001ad8",
+   "name": "sys_image_validate",
+   "role": "VMFW header check, anti-rollback floor 1.8.8 (also sys_image_size)"
+  },
+  {
+   "addr": "0x00001bc4",
+   "name": "odometer_load",
+   "role": "read ring page, check 'VMKYS\\0' magic, return u32 @+8"
+  },
+  {
+   "addr": "0x00001c0c",
+   "name": "odometer_save",
+   "role": "write count to next ring page, erase old"
+  },
+  {
+   "addr": "0x00001ca0",
+   "name": "od_write_odometer_save",
+   "role": "OD 010004a1 write: odometer_save(pulses)"
+  },
+  {
+   "addr": "0x00001cac",
+   "name": "wheel_pulse_cb",
+   "role": "CTIMER0 pulse: speed/period (010001a1), distance every 30 pulses (010002a1), save every 6000"
+  },
+  {
+   "addr": "0x00001d78",
+   "name": "can_od_rx_dispatch"
+  },
+  {
+   "addr": "0x00002134",
+   "name": "config_store_write",
+   "role": "RMW of 512-B config page; lock byte +0x3e -> -22"
+  },
+  {
+   "addr": "0x000023e8",
+   "name": "can_isr"
+  },
+  {
+   "addr": "0x00002604",
+   "name": "od_ota_write",
+   "role": "OD 01008300: append chunk at cursor"
+  },
+  {
+   "addr": "0x000028b0",
+   "name": "od_ota_begin",
+   "role": "OD 01008200: erase pages, set write window"
+  },
+  {
+   "addr": "0x00002924",
+   "name": "od_image_commit",
+   "role": "OD 01008500: CRC check + allow-update marker"
+  },
+  {
+   "addr": "0x00002a38",
+   "name": "main",
+   "role": "clock/peripheral init, node 0xa1, sensor init, superloop (vendor init mostly; not yet C)"
+  },
+  {
+   "addr": "0x000048a8",
+   "name": "hardfault_handler",
+   "role": "vector 3"
+  },
+  {
+   "addr": "0x000048ac",
+   "name": "can_frame_encode",
+   "role": "shared LPC-trio vm CAN/OD TX (frontlight can_od.c)"
+  },
+  {
+   "addr": "0x00004a80",
+   "name": "od_report_13"
+  },
+  {
+   "addr": "0x00004aa6",
+   "name": "od_report_version_record"
+  },
+  {
+   "addr": "0x00004af6",
+   "name": "od_report_slot_geometry"
+  },
+  {
+   "addr": "0x00004b34",
+   "name": "od_report_image_crc"
+  },
+  {
+   "addr": "0x00004b98",
+   "name": "od_write_record13",
+   "role": "OD 01008800 write: {1, 13 B, 0} -> page+0x30"
+  },
+  {
+   "addr": "0x00004bd0",
+   "name": "od_write_blob16",
+   "role": "OD 01009200 write: 16 B -> page+0x40"
+  },
+  {
+   "addr": "0x00004bde",
+   "name": "od_write_lock",
+   "role": "OD 01009400 write: lock byte + production lock"
+  },
+  {
+   "addr": "0x00004c70",
+   "name": "sys_image_clear_marker",
+   "role": "erase slot last page unless blank"
+  }
+ ],
+ "od_table": {
+  "g_od_regs": "0x5090",
+  "g_od_regs_end": "0x5258",
+  "record": "{od_id, mode(0 read/1 write/2 notify), len, timeout, retries, handler|1}"
+ }
+}
