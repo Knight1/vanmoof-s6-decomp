@@ -1,0 +1,255 @@
+{
+ "target": "frontlight",
+ "program": "frontlight.bin",
+ "image_base": "0xC00",
+ "vector_table": "0xC00",
+ "mcu": "NXP LPC55S0x/S1x Cortex-M33 (LPC trio)",
+ "framework": "VanMoof LPC-trio vm CAN/OD + M_CAN, VMFW",
+ "counts": {
+  "named": 53
+ },
+ "reconstructed_to_c": [
+  "frontlight/src/can_od.c",
+  "frontlight/src/led.c",
+  "frontlight/src/od_handlers.c",
+  "frontlight/src/light_ctrl.c",
+  "frontlight/src/od_framework.c",
+  "frontlight/src/light_anim.c",
+  "frontlight/src/lpc_flash.c"
+ ],
+ "od_table": {
+  "g_od_regs": "0x4678..0x4870",
+  "record": "{od_id, mode(0 read/1 write/2 notify), len, timeout, retries, handler|1}"
+ },
+ "functions": [
+  {
+   "addr": "0x00000d80",
+   "name": "reset_handler"
+  },
+  {
+   "addr": "0x00000f28",
+   "name": "systick_handler",
+   "role": "sw_timer_tick: decrement running timers, cb at 1, ms counter"
+  },
+  {
+   "addr": "0x00000f80",
+   "name": "light_set_mode"
+  },
+  {
+   "addr": "0x00000ff4",
+   "name": "light_set_effect"
+  },
+  {
+   "addr": "0x00001048",
+   "name": "light_set_brightness_pct"
+  },
+  {
+   "addr": "0x000010c4",
+   "name": "od_write_brightness"
+  },
+  {
+   "addr": "0x000011f0",
+   "name": "storage_read"
+  },
+  {
+   "addr": "0x0000137c",
+   "name": "sw_timer_alloc",
+   "role": "16-slot alloc, -12 full"
+  },
+  {
+   "addr": "0x000013dc",
+   "name": "sw_timer_expired"
+  },
+  {
+   "addr": "0x000013f8",
+   "name": "sw_timer_running"
+  },
+  {
+   "addr": "0x00001424",
+   "name": "od_slot_finish",
+   "role": "OD slot completion with rc"
+  },
+  {
+   "addr": "0x00001450",
+   "name": "storage_write"
+  },
+  {
+   "addr": "0x000014d0",
+   "name": "storage_ensure_ready"
+  },
+  {
+   "addr": "0x00001500",
+   "name": "can_report_publish"
+  },
+  {
+   "addr": "0x0000156c",
+   "name": "od_read_blob_responder"
+  },
+  {
+   "addr": "0x000015b0",
+   "name": "config_production_lock",
+   "role": "BOOT_CFG|0x70 + SOCU words (likely CMPA lockdown)"
+  },
+  {
+   "addr": "0x000016f4",
+   "name": "sw_timer_start"
+  },
+  {
+   "addr": "0x000017a4",
+   "name": "sw_timer_stop"
+  },
+  {
+   "addr": "0x000017cc",
+   "name": "led_spi_transfer"
+  },
+  {
+   "addr": "0x000018e8",
+   "name": "od_write_led_level"
+  },
+  {
+   "addr": "0x000018fc",
+   "name": "od_write_led_pattern"
+  },
+  {
+   "addr": "0x00001a38",
+   "name": "config_store_write",
+   "role": "RMW of 512-B config page; lock byte +0x3e -> -22"
+  },
+  {
+   "addr": "0x00001ab4",
+   "name": "flash_cache_invalidate"
+  },
+  {
+   "addr": "0x00001ae0",
+   "name": "flash_init_once"
+  },
+  {
+   "addr": "0x00001afc",
+   "name": "sys_image_info",
+   "role": "slot geometry {sector, page, size, base}"
+  },
+  {
+   "addr": "0x00001b2c",
+   "name": "fw_trailer_get",
+   "role": "region-0 VMFW trailer (base+size-0x28); was misnamed rtt_get_buffer"
+  },
+  {
+   "addr": "0x00001ba8",
+   "name": "rtt_write"
+  },
+  {
+   "addr": "0x00001d0c",
+   "name": "printf_format"
+  },
+  {
+   "addr": "0x00001de0",
+   "name": "can_od_rx_dispatch"
+  },
+  {
+   "addr": "0x000020b0",
+   "name": "flash_cache_flush",
+   "role": "flash page-cache write-back (ROM API)"
+  },
+  {
+   "addr": "0x00002138",
+   "name": "flash_page_write"
+  },
+  {
+   "addr": "0x000021ac",
+   "name": "od_ota_write",
+   "role": "OD 01008300: append chunk at cursor"
+  },
+  {
+   "addr": "0x000021e4",
+   "name": "image_read"
+  },
+  {
+   "addr": "0x00002280",
+   "name": "sys_image_validate",
+   "role": "VMFW header check, anti-rollback floor 1.8.8 (also sys_image_size)"
+  },
+  {
+   "addr": "0x000022f4",
+   "name": "image_crc32"
+  },
+  {
+   "addr": "0x0000236c",
+   "name": "can_isr"
+  },
+  {
+   "addr": "0x00002514",
+   "name": "flash_erase"
+  },
+  {
+   "addr": "0x0000281c",
+   "name": "od_ota_begin",
+   "role": "OD 01008200: erase pages, set write window"
+  },
+  {
+   "addr": "0x00002890",
+   "name": "od_image_commit",
+   "role": "OD 01008500: CRC check + allow-update marker"
+  },
+  {
+   "addr": "0x000033d8",
+   "name": "light_main_loop",
+   "role": "main superloop tail: heartbeat/WWDT, OD retry, A (LED ring) + B (PWM) animation SMs"
+  },
+  {
+   "addr": "0x00003ff8",
+   "name": "hardfault_handler"
+  },
+  {
+   "addr": "0x00003ffc",
+   "name": "can_frame_encode"
+  },
+  {
+   "addr": "0x00004146",
+   "name": "led_active_index"
+  },
+  {
+   "addr": "0x00004188",
+   "name": "led_driver_set"
+  },
+  {
+   "addr": "0x000041c8",
+   "name": "led_set_level"
+  },
+  {
+   "addr": "0x000041d2",
+   "name": "led_set_all"
+  },
+  {
+   "addr": "0x000041e8",
+   "name": "od_write_record13",
+   "role": "OD 01008800 write: {1, 13 B, 0} -> page+0x30"
+  },
+  {
+   "addr": "0x00004220",
+   "name": "od_write_blob16",
+   "role": "OD 01009200 write: 16 B -> page+0x40"
+  },
+  {
+   "addr": "0x0000422e",
+   "name": "od_write_lock",
+   "role": "OD 01009400 write: lock byte + production lock"
+  },
+  {
+   "addr": "0x00004312",
+   "name": "putchar_emit"
+  },
+  {
+   "addr": "0x000043b2",
+   "name": "sys_image_clear_marker",
+   "role": "erase slot last page unless blank"
+  },
+  {
+   "addr": "0x00004422",
+   "name": "vm_memcpy"
+  },
+  {
+   "addr": "0x0000443c",
+   "name": "vm_memset"
+  }
+ ]
+}

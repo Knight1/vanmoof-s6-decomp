@@ -1,0 +1,296 @@
+{
+ "target": "motor_control",
+ "program": "motor-control.bin.0",
+ "image_base": "0x08002000",
+ "vector_table": "0x08002400",
+ "mcu": "STM32G4 (Cortex-M4F)",
+ "framework": "VanMoof vm CAN/OD (FDCAN), MCUboot",
+ "counts": {
+  "named": 67
+ },
+ "reconstructed_to_c": [
+  "motor_control/src/assist.c",
+  "motor_control/src/od_framework.c",
+  "motor_control/src/motor_glue.c",
+  "motor_control/src/mc_task.c",
+  "motor_control/src/evt_timer.c",
+  "motor_control/src/app_main.c",
+  "motor_control/src/can_rx.c",
+  "motor_control/src/gate_driver.c"
+ ],
+ "od_table": {
+  "g_od_regs": "0x0800ccb0",
+  "g_od_regs_end": "0x0800cef0",
+  "node": "0x8d"
+ },
+ "functions": [
+  {
+   "addr": "0x08004808",
+   "name": "flash_area_write"
+  },
+  {
+   "addr": "0x08004a40",
+   "name": "fw_trailer_get"
+  },
+  {
+   "addr": "0x08004a60",
+   "name": "dtc_raise"
+  },
+  {
+   "addr": "0x08004aa4",
+   "name": "nvic_system_reset"
+  },
+  {
+   "addr": "0x08004ac8",
+   "name": "od_rsp_variant"
+  },
+  {
+   "addr": "0x08004b20",
+   "name": "od_notify_068d"
+  },
+  {
+   "addr": "0x08004b30",
+   "name": "od_write_assist_profile"
+  },
+  {
+   "addr": "0x08004bdc",
+   "name": "motor_set_speed_cap"
+  },
+  {
+   "addr": "0x08005264",
+   "name": "od_report_fw_version"
+  },
+  {
+   "addr": "0x080052a4",
+   "name": "od_report_slot_geometry"
+  },
+  {
+   "addr": "0x080052c0",
+   "name": "od_read_hw_id"
+  },
+  {
+   "addr": "0x08005324",
+   "name": "i2c_reg_read"
+  },
+  {
+   "addr": "0x0800541c",
+   "name": "i2c_reg_write"
+  },
+  {
+   "addr": "0x0800556c",
+   "name": "od_slot_finish"
+  },
+  {
+   "addr": "0x08005598",
+   "name": "motor_set_torque_ref"
+  },
+  {
+   "addr": "0x08005608",
+   "name": "motor_set_current_ma"
+  },
+  {
+   "addr": "0x08005658",
+   "name": "evt_timer_insert"
+  },
+  {
+   "addr": "0x080056c0",
+   "name": "evt_timer_arm"
+  },
+  {
+   "addr": "0x080056f8",
+   "name": "evt_timer_restart"
+  },
+  {
+   "addr": "0x08005790",
+   "name": "od_rx_wheel_speed"
+  },
+  {
+   "addr": "0x080058e0",
+   "name": "od_publish"
+  },
+  {
+   "addr": "0x08005934",
+   "name": "flash_area_erase"
+  },
+  {
+   "addr": "0x08005af8",
+   "name": "motor_stop"
+  },
+  {
+   "addr": "0x08005b20",
+   "name": "motor_enable"
+  },
+  {
+   "addr": "0x08005b9c",
+   "name": "assist_timeout_cb"
+  },
+  {
+   "addr": "0x08005bfc",
+   "name": "flash_area_read"
+  },
+  {
+   "addr": "0x08005c2c",
+   "name": "image_crc32"
+  },
+  {
+   "addr": "0x08005ca8",
+   "name": "od_ota_write"
+  },
+  {
+   "addr": "0x08005ce0",
+   "name": "config_load"
+  },
+  {
+   "addr": "0x08005d24",
+   "name": "od_notify_018d"
+  },
+  {
+   "addr": "0x0800603c",
+   "name": "image_check_ready"
+  },
+  {
+   "addr": "0x080062f8",
+   "name": "od_slot_alloc"
+  },
+  {
+   "addr": "0x08006334",
+   "name": "od_request"
+  },
+  {
+   "addr": "0x08006398",
+   "name": "mc_periodic_1s"
+  },
+  {
+   "addr": "0x0800649c",
+   "name": "motor_torque_est"
+  },
+  {
+   "addr": "0x08006520",
+   "name": "motor_speed_q30"
+  },
+  {
+   "addr": "0x08006540",
+   "name": "motor_speed"
+  },
+  {
+   "addr": "0x08006580",
+   "name": "od_rx_pedal_torque"
+  },
+  {
+   "addr": "0x080066d0",
+   "name": "mc_publish_telemetry"
+  },
+  {
+   "addr": "0x08006890",
+   "name": "log_printf"
+  },
+  {
+   "addr": "0x08006b08",
+   "name": "od_ota_begin"
+  },
+  {
+   "addr": "0x08006bbc",
+   "name": "od_image_commit"
+  },
+  {
+   "addr": "0x08006cd4",
+   "name": "tim2_isr"
+  },
+  {
+   "addr": "0x08006d14",
+   "name": "fdcan1_it0_isr"
+  },
+  {
+   "addr": "0x0800712c",
+   "name": "tim1_up_tim16_isr"
+  },
+  {
+   "addr": "0x0800713c",
+   "name": "tim1_cc_isr"
+  },
+  {
+   "addr": "0x080071b0",
+   "name": "hardfault_handler"
+  },
+  {
+   "addr": "0x0800722c",
+   "name": "main"
+  },
+  {
+   "addr": "0x08009520",
+   "name": "tim1_brk_tim15_isr"
+  },
+  {
+   "addr": "0x0800958c",
+   "name": "systick_handler"
+  },
+  {
+   "addr": "0x080095c0",
+   "name": "irq59_isr"
+  },
+  {
+   "addr": "0x0800a360",
+   "name": "reset_handler"
+  },
+  {
+   "addr": "0x0800a822",
+   "name": "mc_fault_to_dtc"
+  },
+  {
+   "addr": "0x0800a88e",
+   "name": "mavg_push"
+  },
+  {
+   "addr": "0x0800ab60",
+   "name": "can_frame_encode"
+  },
+  {
+   "addr": "0x0800ac58",
+   "name": "od_report_version_record"
+  },
+  {
+   "addr": "0x0800ad04",
+   "name": "gd_unlock"
+  },
+  {
+   "addr": "0x0800ad26",
+   "name": "gd_lock"
+  },
+  {
+   "addr": "0x0800ad40",
+   "name": "od_report_image_crc"
+  },
+  {
+   "addr": "0x0800ae36",
+   "name": "config_save"
+  },
+  {
+   "addr": "0x0800ae6c",
+   "name": "od_report_13"
+  },
+  {
+   "addr": "0x0800aea6",
+   "name": "od_read_blob_responder"
+  },
+  {
+   "addr": "0x0800aef0",
+   "name": "od_write_record13"
+  },
+  {
+   "addr": "0x0800af28",
+   "name": "od_write_blob16"
+  },
+  {
+   "addr": "0x0800af56",
+   "name": "od_write_lock"
+  },
+  {
+   "addr": "0x0800af6e",
+   "name": "mavg_reset"
+  },
+  {
+   "addr": "0x0800b1b2",
+   "name": "default_handler"
+  }
+ ]
+}
